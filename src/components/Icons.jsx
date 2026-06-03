@@ -137,3 +137,17 @@ export const ErrorCircle = (p) => (
     <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zm0-14v4m0 4h.01" />
   </svg>
 );
+
+export const Pencil = (p) => (
+  <svg viewBox="0 0 24 24" {...p}>
+    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+  </svg>
+);
+
+export const PersonCircle = (p) => (
+  <svg viewBox="0 0 24 24" {...p}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 12a4 4 0 100-8 4 4 0 000 8zm-7.4 8a8.001 8.001 0 0114.8 0" />
+  </svg>
+);

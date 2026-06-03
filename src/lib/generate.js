@@ -1,6 +1,18 @@
 // ── Core generation logic, ported from the original index.html <script>. ──
 // The behaviour is identical; only the surrounding UI moved to React.
 
+// ── PLACEHOLDER TAGS for client-provided images ──
+// The AI writes these placeholder strings as img src values.
+// App.jsx replaces them with actual base64 data URIs after generation.
+export const CLIENT_PLACEHOLDER = {
+  hero:    '__CIMG_HERO__',
+  coach:   '__CIMG_COACH__',
+  product: '__CIMG_PRODUCT__',
+  logo:    '__CIMG_LOGO__',
+  bonus:   '__CIMG_BONUS__',
+  team:    '__CIMG_TEAM__',
+};
+
 // ── API CALL WITH RATE-LIMIT HANDLING ──
 // `onToast` is an optional callback so the UI can show the live countdown.
 function countdownWait(sec, onToast) {
@@ -90,7 +102,7 @@ export async function analyzeReferences(refs, onToast) {
   });
   content.push({
     type: 'text',
-    text: `You are a senior UI/layout engineer. Study the reference design(s) above PIXEL BY PIXEL and extract BOTH the visual design system AND the exact layout structure so the page can be rebuilt identically.
+    text: `You are a senior UI/layout engineer AND content analyst. Study the reference design(s) above PIXEL BY PIXEL. Extract BOTH the complete visual design system AND all readable business content from the pages.
 SAMPLE REAL COLOURS from the pixels (true hex, no guesses).
 Return ONLY raw JSON (no markdown, no commentary) in EXACTLY this shape:
 {
@@ -111,7 +123,20 @@ Return ONLY raw JSON (no markdown, no commentary) in EXACTLY this shape:
    "images":"describe every image slot in the design — e.g. 'hero: full-width background photo of a person coaching', 'features: 3 small square photos in a row', 'testimonials: circular avatar photos 60px'"
  },
  "sections":["section names top-to-bottom that the reference uses"],
- "distinctive":["5-8 specific layout + visual details that make this design unique — be precise, e.g. 'hero has a diagonal clip-path divider', 'nav has a coloured left border accent', 'price box has a 3px glowing border'"]
+ "distinctive":["5-8 specific layout + visual details that make this design unique — be precise, e.g. 'hero has a diagonal clip-path divider', 'nav has a coloured left border accent', 'price box has a 3px glowing border'"],
+ "extractedContent":{
+   "productName": "exact product/service/course name if clearly readable in the image, else null",
+   "price": "exact price with currency symbol if visible (e.g. ₹4,999 or $297), else null",
+   "heroHeadline": "exact main headline text if clearly readable, else null",
+   "heroSubhead": "exact subheadline/tagline if readable, else null",
+   "benefits": ["readable benefit points, feature bullets, or module names from the page — list all you can read"],
+   "testimonials": [{"name": "person name if visible", "quote": "testimonial text if readable"}],
+   "guarantee": "guarantee text if visible (e.g. '30-day money back'), else null",
+   "ctaText": "primary CTA button text if readable, else null",
+   "targetAudience": "who this product is for — infer from headlines/copy if possible, else null",
+   "bonuses": ["bonus names/descriptions if listed on the page"],
+   "language": "detected language of the page content: English/Hindi/Hinglish/Gujarati/other"
+ }
 }`,
   });
 
@@ -131,20 +156,78 @@ Return ONLY raw JSON (no markdown, no commentary) in EXACTLY this shape:
   }
 }
 
+// ── Build a plain-text description from content extracted out of reference images ──
+export function buildDescriptionFromContent(c) {
+  if (!c) return '';
+  const lines = [];
+  if (c.productName) lines.push('Product/Service: ' + c.productName);
+  if (c.price) lines.push('Price: ' + c.price);
+  if (c.targetAudience) lines.push('Target Audience: ' + c.targetAudience);
+  if (c.heroHeadline) lines.push('Main Headline: ' + c.heroHeadline);
+  if (c.heroSubhead) lines.push('Subheadline: ' + c.heroSubhead);
+  if (Array.isArray(c.benefits) && c.benefits.length)
+    lines.push('Key Benefits / Features:\n' + c.benefits.map((b) => '- ' + b).join('\n'));
+  if (Array.isArray(c.bonuses) && c.bonuses.length)
+    lines.push('Bonuses:\n' + c.bonuses.map((b) => '- ' + b).join('\n'));
+  if (Array.isArray(c.testimonials) && c.testimonials.length)
+    lines.push(
+      'Testimonials:\n' +
+        c.testimonials.map((t) => `- ${t.name || 'Customer'}: "${t.quote}"`).join('\n')
+    );
+  if (c.guarantee) lines.push('Guarantee: ' + c.guarantee);
+  if (c.ctaText) lines.push('CTA Button: ' + c.ctaText);
+  if (c.language && c.language !== 'English') lines.push('Tone/Language: ' + c.language);
+  return lines.join('\n\n');
+}
+
 // ── STEP 2: BUILD THE HTML, DRIVEN BY THE SPEC + THE REFERENCE ──
-export function buildMessages(desc, extra, spec, refs) {
+export function buildMessages(desc, extra, spec, refs, clientImages = []) {
   const imgRefs = refs.filter((r) => r.type === 'image');
   const pdfRefs = refs.filter((r) => r.type === 'pdf');
   const urlRefs = refs.filter((r) => r.type === 'url');
   const hasRef = imgRefs.length > 0 || pdfRefs.length > 0;
   const cleanSpec = spec && !spec.raw && spec.palette;
 
-  const imagePolicy = `IMAGES: You MAY and SHOULD use real stock photos wherever the reference design uses images (hero backgrounds, coach/product photos, testimonial avatars, feature visuals, etc.).
-Use free Unsplash photos via this URL pattern: https://images.unsplash.com/photo-PHOTO_ID?w=WIDTH&h=HEIGHT&fit=crop&auto=format
-Choose a specific, relevant Unsplash photo ID for each image slot — pick a real photo ID that matches the context (e.g. a coaching photo, a product flatlay, a person smiling, etc.). Do NOT use placeholder IDs — use actual Unsplash photo IDs you know exist.
-For avatars/testimonials use: https://i.pravatar.cc/SIZE?img=NUMBER (numbers 1–70).
-Always add width, height, alt, and object-fit:cover on <img> tags. Add onerror="this.style.opacity=0" as a fallback.
-Do NOT use picsum.photos (random) — always pick a contextually relevant photo.`;
+  // ── Which client image roles were provided ──
+  const hasHero    = clientImages.some((i) => i.role === 'hero');
+  const hasCoach   = clientImages.some((i) => i.role === 'coach');
+  const hasProduct = clientImages.some((i) => i.role === 'product');
+  const hasLogo    = clientImages.some((i) => i.role === 'logo');
+
+  // ── Client image placeholder block ──
+  const roleDesc = {
+    hero:    'HERO SECTION — place image on the RIGHT side of a 2-column hero (text LEFT 55%, image RIGHT 45%)',
+    coach:   'ABOUT/COACH SECTION — place image on the LEFT (38%), bio/credentials on the RIGHT (62%)',
+    product: 'PRODUCT SHOWCASE SECTION — display as the main product visual',
+    logo:    'NAV/HEADER — use as the brand logo <img>',
+    bonus:   'BONUS SECTION — display next to the bonus name/description',
+    team:    'TEAM SECTION — use as the team photo',
+  };
+
+  let clientImgBlock = '';
+  if (clientImages.length > 0) {
+    clientImgBlock = `\n\nCLIENT PHOTOS PROVIDED — use EXACTLY these placeholder strings as the img src attribute. They are auto-replaced with real photos at render time:
+${clientImages.map((img) => {
+  const ph = CLIENT_PLACEHOLDER[img.role] || ('__CIMG_' + img.role.toUpperCase() + '__');
+  const pos = roleDesc[img.role] || img.role.toUpperCase() + ' section';
+  return `• ${img.role.toUpperCase()} IMAGE ("${img.label}"): src="${ph}"\n  → Position: ${pos}\n  → Style: width:100%, height:100%, object-fit:cover, same border-radius as design`;
+}).join('\n')}
+CRITICAL RULES FOR CLIENT IMAGES:
+• Use ONLY the placeholder string above as the src — do NOT use Unsplash, picsum, or pravatar for any section that has a client image placeholder.
+• The placeholder string must appear EXACTLY as written (e.g. src="${CLIENT_PLACEHOLDER.hero}") — any modification breaks the image substitution.
+• Add appropriate alt text based on the label.`;
+  }
+
+  const imagePolicy = `IMAGES: Use real stock photos for sections where no client image is provided.
+${hasHero ? `• Hero image: USE CLIENT PLACEHOLDER src="${CLIENT_PLACEHOLDER.hero}" — do NOT use Unsplash for hero.` : '• Hero: use a relevant Unsplash photo (person/coach/product).'}
+${hasCoach ? `• Coach/About photo: USE CLIENT PLACEHOLDER src="${CLIENT_PLACEHOLDER.coach}".` : '• Coach/About: use an Unsplash photo of a professional person.'}
+${hasProduct ? `• Product image: USE CLIENT PLACEHOLDER src="${CLIENT_PLACEHOLDER.product}".` : '• Product: use relevant Unsplash product photo.'}
+${hasLogo ? `• Logo: USE CLIENT PLACEHOLDER src="${CLIENT_PLACEHOLDER.logo}" in the nav.` : ''}
+For ALL OTHER image slots (testimonial avatars, feature icons, background accents):
+• Unsplash: https://images.unsplash.com/photo-PHOTO_ID?w=WIDTH&h=HEIGHT&fit=crop&auto=format (use real, contextually relevant photo IDs)
+• Avatars: https://i.pravatar.cc/SIZE?img=NUMBER (1–70)
+• Always add width, height, alt, object-fit:cover. Add onerror="this.style.opacity=0".
+• Do NOT use picsum.photos.${clientImgBlock}`;
 
   const defaultSections = `SECTIONS (in order):
 1. Sticky nav + CTA
@@ -219,16 +302,69 @@ Do NOT substitute your own colours, fonts, or layout. The final page must visual
 
   const extraNote = extra ? `\n\nADDITIONAL DIRECTION: ${extra}` : '';
 
+  const animationBlock = `
+
+SCROLL ANIMATIONS — implement in every funnel (mandatory):
+Add these CSS rules inside your <style> tag:
+  .animate{opacity:0;transform:translateY(36px);transition:opacity .65s ease,transform .65s ease}
+  .animate.visible{opacity:1;transform:translateY(0)!important}
+  .anim-left{transform:translateX(-44px)!important}
+  .anim-right{transform:translateX(44px)!important}
+  .anim-scale{transform:scale(.91)!important}
+  .animate:nth-child(2){transition-delay:.09s}.animate:nth-child(3){transition-delay:.18s}.animate:nth-child(4){transition-delay:.27s}.animate:nth-child(5){transition-delay:.36s}.animate:nth-child(6){transition-delay:.45s}
+  @keyframes heroIn{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:none}}
+
+Add this JS block just before </body>:
+  <script>
+  (function(){
+    var io=new IntersectionObserver(function(ee){ee.forEach(function(e){if(e.isIntersecting){e.target.classList.add('visible');io.unobserve(e.target);}});},{threshold:0.11});
+    document.querySelectorAll('.animate').forEach(function(el){io.observe(el);});
+    document.querySelectorAll('[data-count]').forEach(function(el){
+      var io2=new IntersectionObserver(function(ee){if(!ee[0].isIntersecting)return;io2.unobserve(el);
+        var end=+el.getAttribute('data-count'),sfx=el.getAttribute('data-suffix')||'',cur=0,
+            t=setInterval(function(){cur+=end/55;if(cur>=end){cur=end;clearInterval(t);}el.textContent=Math.round(cur).toLocaleString()+sfx;},28);
+      },{threshold:.5});
+      io2.observe(el);
+    });
+  })();
+  </script>
+
+Apply animation classes exactly like this:
+• Hero headline + subhead: add style="animation:heroIn .8s ease both" (plays on page load, no observer)
+• Every section heading (h2, h3): add class="animate"
+• Every feature/benefit card: add class="animate"
+• Every testimonial/review card: add class="animate"
+• Pricing/offer box: add class="animate anim-scale"
+• Left column in 2-col sections: add class="animate anim-left"
+• Right column in 2-col sections: add class="animate anim-right"
+• FAQ items: add class="animate"
+• Stat numbers: <span data-count="500" data-suffix="+">500+</span> (JS counts up on scroll)
+• Primary CTA buttons: add a pulsing glow @keyframes animation using the accent colour (repeat:infinite, 2.5s cycle)
+• All cards/feature boxes: add CSS transition + translateY(-5px) + deeper shadow on :hover
+• All buttons: translateY(-2px) + shadow on :hover, scale(.97) on :active`;
+
+  const funnelLayoutRules = `
+
+SALES FUNNEL LAYOUT RULES (mandatory — this is a SALES FUNNEL, not a generic website):
+• HERO: Always 2-column on desktop — headline/subhead/CTA LEFT (55%), ${hasHero ? 'client photo (placeholder above)' : 'relevant person/product photo'} RIGHT (45%). NEVER a full-width centered text-only hero. Mobile: stacked (content above, image below).
+• COACH / ABOUT: 2-column — photo LEFT (38%), bio/credentials/social proof RIGHT (62%). Mobile: photo stacked above text.
+• FEATURES / BENEFITS: Use alternating left-right rows for 2-4 items (visual one side, text other side). Use a 3-col icon+text grid for 5+ items. NEVER a text-only list.
+• TESTIMONIALS: Card grid — each card: avatar image LEFT, quote text + name RIGHT. Stars rating visible.
+• OFFER / PRICING: 2-column — value stack + bonus list LEFT, price box + CTA button RIGHT. Price box has accent border / glow.
+• PROBLEM SECTION: 2-col or alternating, with a visual or icon on one side.
+• DO NOT render any major section as a centered full-width wall of text — every section must have a visual element (image, icon, illustration, or decorative shape) alongside the copy.
+• Sticky nav must stay fixed at top with a prominent CTA button.`;
+
   const sys = `You are a world-class conversion copywriter AND senior landing-page designer. Build a complete ready-to-publish HTML sales funnel.
 
 OUTPUT: ONLY raw HTML starting with <!DOCTYPE html>. No markdown, no fences, no commentary.
-SINGLE FILE: All CSS inside one <style> tag. Load the required Google Font(s). No frameworks. Minimal vanilla JS only for FAQ accordion / smooth scroll.
+SINGLE FILE: All CSS inside one <style> tag. Load the required Google Font(s). No frameworks. Minimal vanilla JS only for FAQ accordion / smooth scroll / animations.
 ${imagePolicy}
 
 ${sectionRule}
 
 COPY: Real product name, exact price, audience, bonuses, guarantee, real numbers. No lorem ipsum. Match client's language/tone (Hinglish if description is Hinglish).
-DESIGN: Premium, modern, strong hierarchy, generous spacing, hover states, fully responsive (mobile + desktop @media).${matchBlock}${designBrief}${extraNote}`;
+DESIGN: Premium, modern, strong hierarchy, generous spacing, hover states, fully responsive (mobile + desktop @media).${funnelLayoutRules}${matchBlock}${designBrief}${animationBlock}${extraNote}`;
 
   const userText = `CLIENT DESCRIPTION:\n"""\n${desc}\n"""\n\nDesign and build the complete sales funnel. Output ONLY the HTML document starting with <!DOCTYPE html>.`;
 
@@ -276,28 +412,47 @@ DESIGN: Premium, modern, strong hierarchy, generous spacing, hover states, fully
 
 // ── STEP 3 (optional): EDIT AN EXISTING FUNNEL ──
 export async function editFunnel(currentHtml, instruction, onToast) {
-  const content = `You are a senior HTML/CSS/JS developer editing an existing landing page.
+  // Strip data: URIs from the HTML before sending to the model.
+  // Large base64 blobs waste tokens and can cause truncation.
+  // We restore them after the model replies.
+  const imageMap = {};
+  let imgIdx = 0;
+  const strippedHtml = currentHtml.replace(/data:[^;]+;base64,[A-Za-z0-9+/=]*/g, (match) => {
+    const key = `__DURI_${imgIdx++}__`;
+    imageMap[key] = match;
+    return key;
+  });
+
+  const content = `You are a senior HTML/CSS/JS developer editing an existing sales funnel landing page.
 
 USER'S EDIT INSTRUCTION (understand this in ANY language — English, Hindi, Gujarati, Hinglish, or any mix):
 """
 ${instruction}
 """
 
-RULES:
-1. Understand the instruction no matter what language it is written in.
-2. Make ONLY the specific changes the user described — do not redesign or restructure anything else.
-3. Preserve ALL existing copy, sections, colours, fonts, images, and layout that are not mentioned.
-4. Output the COMPLETE updated HTML document starting with <!DOCTYPE html>.
-5. No markdown, no fences, no explanation — raw HTML only.
+STRICT RULES:
+1. Understand the instruction in ANY language.
+2. Make ONLY the specific changes described — preserve everything else EXACTLY as-is.
+3. Keep ALL __DURI_N__ placeholder strings EXACTLY as written — they are image data that will be restored automatically. Do NOT remove or alter them.
+4. Preserve ALL existing CSS, JS, sections, fonts, colors, and layout not mentioned.
+5. Output the COMPLETE updated HTML document starting with <!DOCTYPE html> — never truncate.
+6. No markdown, no code fences, no explanation — raw HTML only.
 
 CURRENT HTML TO EDIT:
-${currentHtml}`;
+${strippedHtml}`;
 
   const data = await apiGenerate(
     { messages: [{ role: 'user', content }], maxOutputTokens: 32000, thinkingBudget: 0, temperature: 0.2 },
     onToast
   );
-  return (data.content || []).map((b) => b.text || '').join('');
+  let result = (data.content || []).map((b) => b.text || '').join('');
+
+  // Restore all stripped data: URIs
+  Object.entries(imageMap).forEach(([key, val]) => {
+    result = result.replaceAll(key, val);
+  });
+
+  return result;
 }
 export function extractHtml(text) {
   let t = (text || '').trim();

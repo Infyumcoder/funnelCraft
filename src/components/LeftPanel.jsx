@@ -1,6 +1,7 @@
 import { Bolt, Chevron } from './Icons';
 import { EXAMPLES } from '../lib/data';
 import ReferencePanel from './ReferencePanel';
+import ClientImagesPanel from './ClientImagesPanel';
 
 const CHIPS = [
   ['+ Guarantee', '30-day money back guarantee.'],
@@ -16,7 +17,7 @@ const EXAMPLE_ROWS = [
   { n: 3, bg: 'var(--ams)', emoji: '📣', title: 'Agency Service', desc: 'Social Media Mgmt — ₹15,000/mo' },
 ];
 
-export default function LeftPanel({ desc, setDesc, refs, setRefs, onGenerate, busy, toast }) {
+export default function LeftPanel({ desc, setDesc, refs, setRefs, clientImages, setClientImages, onGenerate, busy, toast }) {
   function addChip(t) {
     setDesc((prev) => (prev.trim() ? prev.trim() + '\n' : '') + t);
   }
@@ -41,7 +42,7 @@ export default function LeftPanel({ desc, setDesc, refs, setRefs, onGenerate, bu
             className="ta"
             value={desc}
             onChange={(e) => setDesc(e.target.value)}
-            placeholder="Example: My client sells a Digital Marketing course called 'Growth Formula'. Price ₹4,999. 6 modules, live Q&A, 500+ students, 30-day guarantee..."
+            placeholder="Example: My client sells a Digital Marketing course called 'Growth Formula'. Price ₹4,999. 6 modules, live Q&A, 500+ students, 30-day guarantee...&#10;&#10;Tip: Leave blank if you upload reference images — AI will auto-extract the content!"
           />
         </div>
 

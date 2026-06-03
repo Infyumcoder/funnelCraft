@@ -4,11 +4,12 @@ import LeftPanel from './components/LeftPanel';
 import RightPanel from './components/RightPanel';
 import Toast from './components/Toast';
 import { VARIATION_PROMPTS } from './lib/data';
-import { apiGenerate, analyzeReferences, buildMessages, editFunnel, extractHtml } from './lib/generate';
+import { apiGenerate, analyzeReferences, buildMessages, buildDescriptionFromContent, editFunnel, extractHtml, CLIENT_PLACEHOLDER } from './lib/generate';
 
 export default function App() {
   const [desc, setDesc] = useState('');
-  const [refs, setRefs] = useState([]); // [{type,data,mediaType,label,dataUrl,size}]
+  const [refs, setRefs] = useState([]);           // [{type,data,mediaType,label,dataUrl,size}]
+  const [clientImages, setClientImages] = useState([]); // [{id,role,label,dataUrl,base64,mediaType}]
   const [html, setHtml] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -51,21 +52,50 @@ export default function App() {
     setError('');
     setHtml('');
 
+    let effectiveDesc = description;
+
     try {
-      // STEP 1 — get a design spec from the reference (cached; skipped if none).
+      // STEP 1 — get a design spec + extracted content from the reference (cached).
       let spec = null;
       try {
+        const hasImages = refs.some((r) => r.type === 'image' || r.type === 'pdf');
+        if (hasImages) toast('Analysing your reference images…');
         spec = await getSpec();
       } catch (e) {
-        if (/limit|quota|overloaded/i.test(e.message)) throw e; // don't burn a 2nd request
+        if (/limit|quota|overloaded/i.test(e.message)) throw e;
         spec = null;
       }
-      // STEP 2 — build the funnel HTML, with the spec hard-coded in.
-      const payload = buildMessages(description, extra, spec, refs);
+
+      // If description was empty, try to auto-fill from extracted content in the images.
+      if (!effectiveDesc && spec?.extractedContent) {
+        const autoDesc = buildDescriptionFromContent(spec.extractedContent);
+        if (autoDesc) {
+          effectiveDesc = autoDesc;
+          setDesc(autoDesc);
+          toast('Content extracted from your images!');
+        }
+      }
+
+      if (!effectiveDesc) {
+        throw new Error('Please paste a description OR upload reference images with readable content.');
+      }
+
+      // STEP 2 — build the funnel HTML with the spec hard-coded in.
+      const payload = buildMessages(effectiveDesc, extra, spec, refs, clientImages);
       const data = await apiGenerate(payload, toast);
       const text = (data.content || []).map((b) => b.text || '').join('');
       if (!text.trim()) throw new Error(data.error?.message || 'Empty response. Please try again.');
-      setHtml(extractHtml(text));
+
+      // Replace client image placeholders with actual base64 data URIs
+      let generatedHtml = extractHtml(text);
+      clientImages.forEach((img) => {
+        const ph = CLIENT_PLACEHOLDER[img.role];
+        if (ph) {
+          const dataUri = `data:${img.mediaType || 'image/jpeg'};base64,${img.base64}`;
+          generatedHtml = generatedHtml.replaceAll(ph, dataUri);
+        }
+      });
+      setHtml(generatedHtml);
       setView('prev');
       toast('Funnel ready! Desktop + Mobile preview available.');
     } catch (err) {
@@ -77,8 +107,9 @@ export default function App() {
 
   function generate() {
     const d = desc.trim();
-    if (!d) {
-      toast('Please paste a description first!');
+    const hasImages = refs.some((r) => r.type === 'image' || r.type === 'pdf');
+    if (!d && !hasImages) {
+      toast('Please paste a description or upload reference images!');
       return;
     }
     lastDesc.current = d;
@@ -136,6 +167,8 @@ export default function App() {
           setDesc={setDesc}
           refs={refs}
           setRefs={setRefs}
+          clientImages={clientImages}
+          setClientImages={setClientImages}
           onGenerate={generate}
           busy={busy}
           toast={toast}
