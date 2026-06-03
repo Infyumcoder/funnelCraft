@@ -134,7 +134,11 @@ app.post('/api/generate', async (req, res) => {
     }
 
     // Pull text out of Gemini's reply.
+    // Filter out thinking parts (thought: true) — they appear in the parts array
+    // when thinkingBudget > 0, and mixing them with the actual output corrupts
+    // JSON parsing in analyzeReferences (thinking text often contains '{' chars).
     const text = (data?.candidates?.[0]?.content?.parts || [])
+      .filter(p => !p.thought)
       .map(p => p.text || '')
       .join('');
 

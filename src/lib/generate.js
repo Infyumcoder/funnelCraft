@@ -234,7 +234,10 @@ DESIGN: Premium, modern, strong hierarchy, generous spacing, hover states, fully
 
   return {
     messages: [{ role: 'user', content: content.length === 1 ? content[0].text : content }],
-    thinkingBudget: 0, // spec already did the "thinking"
+    // Give the model a small thinking budget when refs are present so it can
+    // reconcile the extracted spec with the reference image before writing HTML.
+    // No refs → no thinking needed (saves latency).
+    thinkingBudget: hasRef ? 2048 : 0,
     temperature: hasRef ? 0.35 : 1, // very low → follows the spec tightly
     maxOutputTokens: 32000,
   };
