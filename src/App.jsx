@@ -64,11 +64,7 @@ export default function App() {
       const payload = buildMessages(description, extra, spec, refs);
       const data = await apiGenerate(payload, toast);
       const text = (data.content || []).map((b) => b.text || '').join('');
-<<<<<<< HEAD
-      if (!text.trim()) throw new Error(data.error?.message || 'Empty response. Please retry.');
-=======
       if (!text.trim()) throw new Error(data.error?.message || 'Empty response. Please try again.');
->>>>>>> 3def38c340cfa2f8a15398d8cbc35c2cefebccb0
       setHtml(extractHtml(text));
       setView('prev');
       toast('Funnel ready! Desktop + Mobile preview available.');

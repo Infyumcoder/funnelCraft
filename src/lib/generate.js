@@ -36,11 +36,7 @@ export async function apiGenerate(payload, onToast) {
     try {
       data = await res.json();
     } catch (e) {
-<<<<<<< HEAD
-      data = { error: 'Server returned a bad response.' };
-=======
       data = { error: 'Server returned an invalid response.' };
->>>>>>> 3def38c340cfa2f8a15398d8cbc35c2cefebccb0
     }
     if (res.ok) return data;
 
@@ -59,16 +55,9 @@ export async function apiGenerate(payload, onToast) {
     }
     if (isQuota) {
       throw new Error(
-<<<<<<< HEAD
-        'Gemini free-tier limit reached. ' +
-          (waitS > 65
-            ? 'Daily limit appears to be fully exhausted — it will reset tomorrow, or set GEMINI_MODEL=gemini-2.5-flash-lite in .env and restart the server (more daily requests).'
-            : 'Limit has not cleared. Wait 2 minutes and try again, or switch to flash-lite (.env → GEMINI_MODEL=gemini-2.5-flash-lite).')
-=======
         waitS > 65
           ? 'Daily API limit reached — it will reset soon. Try again later or upgrade your Anthropic plan.'
           : 'Rate limit could not clear. Wait 2 minutes and try again.'
->>>>>>> 3def38c340cfa2f8a15398d8cbc35c2cefebccb0
       );
     }
     throw new Error(msg);
