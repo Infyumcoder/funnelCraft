@@ -48,7 +48,13 @@ export async function apiGenerate(payload, onToast) {
     try {
       data = await res.json();
     } catch (e) {
-      data = { error: 'Server returned an invalid response.' };
+      // Non-JSON usually means the backend server is not running (Vite proxy returns 502 HTML)
+      // or the server crashed. Give the user an actionable message.
+      const hint =
+        res.status === 502 || res.status === 503 || res.status === 0
+          ? 'Backend server is not running. Open a second terminal and run: node server.cjs'
+          : `Server returned a non-JSON response (HTTP ${res.status}). Try restarting node server.cjs.`;
+      data = { error: hint };
     }
     if (res.ok) return data;
 

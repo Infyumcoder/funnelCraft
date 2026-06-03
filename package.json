@@ -5,6 +5,7 @@
   "type": "module",
   "homepage": "https://infyumcoder.github.io/funnelCraft/",
   "scripts": {
+    "server": "node server.cjs",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",

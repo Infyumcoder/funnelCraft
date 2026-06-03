@@ -81,7 +81,16 @@ export default function LeftPanel({ desc, setDesc, refs, setRefs, clientImages, 
 
         <div className="dvd"></div>
 
-        {/* REFERENCE FUNNELS */}
+        {/* CLIENT PHOTOS — embedded directly in the funnel */}
+        <ClientImagesPanel
+          clientImages={clientImages}
+          setClientImages={setClientImages}
+          toast={toast}
+        />
+
+        <div className="dvd"></div>
+
+        {/* REFERENCE FUNNELS — used for design style matching */}
         <ReferencePanel refs={refs} setRefs={setRefs} toast={toast} />
       </div>
 
