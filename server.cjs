@@ -1,8 +1,13 @@
-// FunnelCraft AI — backend proxy server (Anthropic Claude API)
-// Browser  ->  this server (holds API key)  ->  Claude API  ->  back
+// FunnelCraft AI — backend proxy server (Google Gemini, FREE tier)
+// Browser  ->  this server (holds API key)  ->  Gemini API  ->  back
 //
 // Why a server? An LLM API cannot be called directly from a browser
 // (CORS + the API key must stay secret). This little server fixes both.
+//
+// The front-end speaks "Anthropic format".
+// This server converts that to Gemini format on the way out, and converts
+// Gemini's reply back to Anthropic shape on the way in — so the front-end
+// needs ZERO changes.
 
 require('dotenv').config();
 const express = require('express');
@@ -11,14 +16,20 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const API_KEY = process.env.ANTHROPIC_API_KEY;
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
+// Free Gemini key — no credit card needed.
+// Get one here: https://aistudio.google.com/apikey
+const API_KEY = process.env.GEMINI_API_KEY;
+
+// Which free model to use. flash-lite gives the most requests/day on free tier.
+// Options: gemini-2.5-flash-lite, gemini-2.5-flash, gemini-2.5-pro
+const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
 
 // Bigger limit so large reference images don't get rejected before our
-// handler runs.
+// handler runs (a rejected body would otherwise become an HTML error page).
 app.use(express.json({ limit: '60mb' }));
 app.use(express.static(path.join(__dirname, 'dist')));
 
+// Catch body-parser errors and return JSON, not Express's default HTML page.
 app.use((err, req, res, next) => {
   if (err) {
     return res.status(err.status || 400).json({
@@ -30,11 +41,40 @@ app.use((err, req, res, next) => {
   next();
 });
 
+// ── Convert Anthropic-style messages -> Gemini "contents" ──
+function toGemini(messages) {
+  return messages.map(m => {
+    const role = m.role === 'assistant' ? 'model' : 'user';
+    let parts;
+
+    if (typeof m.content === 'string') {
+      parts = [{ text: m.content }];
+    } else if (Array.isArray(m.content)) {
+      parts = m.content.map(block => {
+        if (block.type === 'text') {
+          return { text: block.text };
+        }
+        if (block.type === 'image' && block.source?.type === 'base64') {
+          return { inline_data: { mime_type: block.source.media_type, data: block.source.data } };
+        }
+        if (block.type === 'document' && block.source?.type === 'base64') {
+          return { inline_data: { mime_type: 'application/pdf', data: block.source.data } };
+        }
+        return { text: '' };
+      });
+    } else {
+      parts = [{ text: '' }];
+    }
+
+    return { role, parts };
+  });
+}
+
 // ── The endpoint the front-end calls ──
 app.post('/api/generate', async (req, res) => {
   if (!API_KEY) {
     return res.status(500).json({
-      error: 'ANTHROPIC_API_KEY is not set. Add the key to your .env file and restart the server.'
+      error: 'GEMINI_API_KEY is not set. Add the key to your .env file and restart the server.'
     });
   }
 
@@ -43,67 +83,57 @@ app.post('/api/generate', async (req, res) => {
     return res.status(400).json({ error: 'messages array is missing.' });
   }
 
-  // Inline (base64) data size guard — ~20MB total
+  // Gemini's inline (base64) data limit per request is ~20MB total.
   let inlineBytes = 0;
   for (const m of messages) {
     if (Array.isArray(m.content)) {
       for (const b of m.content) {
-        if (b.source?.data) inlineBytes += b.source.data.length * 0.75;
+        if (b.source?.data) inlineBytes += b.source.data.length * 0.75; // base64 -> bytes
       }
     }
   }
   if (inlineBytes > 18 * 1024 * 1024) {
     return res.status(413).json({
-      error: 'Reference images are too large. Use smaller screenshots or reduce the number of references.'
+      error: 'Reference images are too large (~20MB Gemini limit). Use smaller screenshots or fewer references.'
     });
   }
 
   try {
-    const body = {
-      model: MODEL,
-      max_tokens: Number.isInteger(maxOutputTokens) ? maxOutputTokens : 32000,
-      messages,
-    };
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`;
 
-    // Temperature: Claude requires temp=1 when thinking is enabled
-    const useThinking = Number.isInteger(thinkingBudget) && thinkingBudget > 0;
-    if (useThinking) {
-      body.thinking = { type: 'enabled', budget_tokens: thinkingBudget };
-      body.temperature = 1; // required when thinking is on
-    } else {
-      body.temperature = typeof temperature === 'number' ? temperature : 1;
-    }
-
-    const upstream = await fetch('https://api.anthropic.com/v1/messages', {
+    const upstream = await fetch(url, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify(body),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: toGemini(messages),
+        generationConfig: {
+          maxOutputTokens: Number.isInteger(maxOutputTokens) ? maxOutputTokens : 32000,
+          temperature: typeof temperature === 'number' ? temperature : 1,
+          // Thinking OFF by default for page builds (avoids truncated HTML).
+          // Turned ON only for the reference analysis step.
+          ...(MODEL.includes('pro') ? {} : { thinkingConfig: { thinkingBudget: Number.isInteger(thinkingBudget) ? thinkingBudget : 0 } })
+        }
+      })
     });
 
     const data = await upstream.json();
 
     if (!upstream.ok) {
       return res.status(upstream.status).json({
-        error: data?.error?.message || ('Claude API error ' + upstream.status)
+        error: data?.error?.message || ('Gemini error ' + upstream.status)
       });
     }
 
-    // Pull only text blocks (skip thinking blocks)
-    const text = (data?.content || [])
-      .filter(b => b.type === 'text')
-      .map(b => b.text || '')
+    const text = (data?.candidates?.[0]?.content?.parts || [])
+      .map(p => p.text || '')
       .join('');
 
     if (!text.trim()) {
-      const reason = data?.stop_reason || 'empty';
-      return res.status(500).json({ error: 'Claude returned an empty response (' + reason + '). Please try again.' });
+      const reason = data?.candidates?.[0]?.finishReason || 'empty';
+      return res.status(500).json({ error: 'Gemini returned an empty response (' + reason + '). Please try again.' });
     }
 
-    // Return in the same Anthropic shape the front-end already expects
+    // Send back in Anthropic shape so the front-end works unchanged.
     res.json({ content: [{ type: 'text', text }] });
   } catch (err) {
     res.status(500).json({ error: 'Proxy error: ' + err.message });
@@ -116,5 +146,5 @@ app.all('/api/*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`\n  FunnelCraft running 👉  http://localhost:${PORT}`);
-  console.log(`  Model: ${MODEL} (Anthropic Claude)\n`);
+  console.log(`  Model: ${MODEL} (Google Gemini, free tier)\n`);
 });

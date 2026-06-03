@@ -43,9 +43,8 @@ export async function apiGenerate(payload, onToast) {
     const msg = (data && data.error) || 'Server error ' + res.status;
     const isQuota =
       res.status === 429 ||
-      res.status === 529 ||
-      /rate.?limit|overloaded|quota|exceeded/i.test(msg);
-    const m = msg.match(/retry.after[:\s]+([\d.]+)/i) || msg.match(/retry in ([\d.]+)\s*s/i);
+      /quota|rate.?limit|exceeded|RESOURCE_EXHAUSTED/i.test(msg);
+    const m = msg.match(/retry in ([\d.]+)\s*s/i);
     const waitS = m ? Math.ceil(parseFloat(m[1])) : isQuota ? 25 : 0;
     const lastAttempt = attempt === MAX_ATTEMPTS - 1;
 
