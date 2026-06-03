@@ -150,6 +150,7 @@ app.post('/api/generate', async (req, res) => {
     }
 
     const text = (data?.candidates?.[0]?.content?.parts || [])
+      .filter(p => !p.thought) // exclude Gemini thinking tokens — only keep actual output
       .map(p => p.text || '')
       .join('');
 

@@ -108,46 +108,53 @@ export async function analyzeReferences(refs, onToast) {
   });
   content.push({
     type: 'text',
-    text: `You are a senior UI/layout engineer AND content analyst. Study the reference design(s) above PIXEL BY PIXEL. Extract BOTH the complete visual design system AND all readable business content from the pages.
-SAMPLE REAL COLOURS from the pixels (true hex, no guesses).
+    text: `You are a senior UI/CSS engineer AND content analyst. Study the reference design(s) above PIXEL BY PIXEL.
+SAMPLE REAL COLOURS from the pixels — true hex values, no guesses.
 Return ONLY raw JSON (no markdown, no commentary) in EXACTLY this shape:
 {
  "mood":"2-4 words",
  "palette":{"bg":"#hex","surface":"#hex","text":"#hex","muted":"#hex","accent":"#hex","accent2":"#hex"},
  "isDark": true|false,
- "font":{"headingFont":"a real Google Font matching the headings","bodyFont":"a real Google Font matching the body","feel":"e.g. bold condensed / elegant serif / clean geometric"},
+ "font":{"headingFont":"exact Google Font name","bodyFont":"exact Google Font name","feel":"e.g. bold condensed"},
  "radius":"sharp|slightly-rounded|rounded|pill",
- "buttons":"shape, fill colour, hover style",
- "cards":"borders, shadow, fill, layout inside card",
+ "buttons":"describe shape, fill colour, text colour, border, shadow",
+ "cards":"describe borders, shadow, background fill, inner layout",
  "spacing":"tight|balanced|airy",
  "layout":{
-   "nav":"describe nav structure — e.g. fixed bar: logo left, links center, CTA button right",
-   "hero":"describe hero layout — e.g. full-width dark bg; text block left 55%; decorative CSS shape right 45%; single large CTA below headline",
-   "contentSections":"describe how body sections are laid out — e.g. alternating 2-col rows (text left / visual right); 3-col icon grid for features; full-width testimonial strip",
-   "cta":"describe CTA/footer section — e.g. centered banner, large heading, 2 buttons side by side",
-   "grid":"CSS grid/flex patterns used — e.g. 12-col grid, card grids are repeat(3,1fr) gap-24px",
-   "images":"describe every image slot in the design — e.g. 'hero: full-width background photo of a person coaching', 'features: 3 small square photos in a row', 'testimonials: circular avatar photos 60px'"
+   "nav":"exact nav CSS description — e.g. position:fixed; display:flex; justify-content:space-between; background:rgba(0,0,0,0.9); padding:0 60px; height:70px",
+   "hero":"exact hero CSS layout — e.g. display:grid; grid-template-columns:55% 45%; min-height:90vh; padding:80px 60px — plus describe: background type, text alignment, CTA position",
+   "contentSections":"describe each body section CSS pattern — e.g. section 2: display:flex; flex-direction:row-reverse; gap:60px; section 3: display:grid; grid-template-columns:repeat(3,1fr); gap:32px",
+   "cta":"CTA/footer section layout — e.g. text-align:center; padding:120px 60px; background:linear-gradient(...)",
+   "grid":"main grid/flex patterns — e.g. max-width:1200px; margin:0 auto; sections use 80px top/bottom padding",
+   "images":"every image slot with its CSS — e.g. hero right col: width:100%; height:500px; object-fit:cover; border-radius:20px"
  },
- "sections":["section names top-to-bottom that the reference uses"],
- "distinctive":["5-8 specific layout + visual details that make this design unique — be precise, e.g. 'hero has a diagonal clip-path divider', 'nav has a coloured left border accent', 'price box has a 3px glowing border'"],
+ "cssSnippets":{
+   "heroSection":"copy-paste ready CSS for the hero section — background, display, grid-template-columns, padding, min-height, gap — be exact",
+   "navBar":"copy-paste ready CSS for the navbar — position, display, justify-content, background, padding, height, z-index",
+   "featureCards":"copy-paste ready CSS for feature/benefit cards — display, grid-template-columns or flex, background, border-radius, padding, box-shadow",
+   "ctaSection":"copy-paste ready CSS for the final CTA section — background, padding, text-align",
+   "colorVars":":root { --bg: #hex; --surface: #hex; --text: #hex; --accent: #hex; --accent2: #hex; }"
+ },
+ "sections":["exact section names top-to-bottom as they appear in the reference"],
+ "distinctive":["8-10 unique CSS/visual details — be very specific e.g. 'hero uses clip-path:polygon(0 0,100% 0,100% 88%,0 100%)', 'cards have border-left:4px solid accent', 'price box glows with box-shadow:0 0 40px accent'"],
  "extractedContent":{
-   "productName": "exact product/service/course name if clearly readable in the image, else null",
-   "price": "exact price with currency symbol if visible (e.g. ₹4,999 or $297), else null",
-   "heroHeadline": "exact main headline text if clearly readable, else null",
-   "heroSubhead": "exact subheadline/tagline if readable, else null",
-   "benefits": ["readable benefit points, feature bullets, or module names from the page — list all you can read"],
-   "testimonials": [{"name": "person name if visible", "quote": "testimonial text if readable"}],
-   "guarantee": "guarantee text if visible (e.g. '30-day money back'), else null",
-   "ctaText": "primary CTA button text if readable, else null",
-   "targetAudience": "who this product is for — infer from headlines/copy if possible, else null",
-   "bonuses": ["bonus names/descriptions if listed on the page"],
-   "language": "detected language of the page content: English/Hindi/Hinglish/Gujarati/other"
+   "productName": "exact product/service name or null",
+   "price": "exact price with currency or null",
+   "heroHeadline": "exact headline text or null",
+   "heroSubhead": "exact subheadline or null",
+   "benefits": ["all readable benefit/feature bullets"],
+   "testimonials": [{"name": "name", "quote": "quote text"}],
+   "guarantee": "guarantee text or null",
+   "ctaText": "CTA button text or null",
+   "targetAudience": "target audience description or null",
+   "bonuses": ["bonus names/descriptions"],
+   "language": "English|Hindi|Hinglish|Gujarati|other"
  }
 }`,
   });
 
   const data = await apiGenerate(
-    { messages: [{ role: 'user', content }], maxOutputTokens: 8000, thinkingBudget: 4096 },
+    { messages: [{ role: 'user', content }], maxOutputTokens: 8000, thinkingBudget: 0 },
     onToast
   );
   let txt = (data.content || []).map((b) => b.text || '').join('').trim();
@@ -248,67 +255,98 @@ For ALL OTHER image slots (testimonial avatars, feature icons, background accent
 10. Final CTA + urgency
 11. Footer`;
 
-  let matchBlock = '';
-  let designBrief = '';
-  let sectionRule = defaultSections;
-
-  if (hasRef) {
-    matchBlock = `\n\nCRITICAL — LAYOUT + DESIGN MUST MATCH THE REFERENCE EXACTLY:
-Your output must look like it came from the SAME designer as the reference image. A viewer should see both pages side by side and say "same site." This means:
-• Copy the LAYOUT structure precisely — hero split/centered/full-bg, column counts, nav position, section widths.
-• Copy the VISUAL style — exact colours, font weights, border-radius, shadow style.
-• Do NOT fall back to your default look (no generic Inter font, no purple/indigo gradients unless the reference uses them).
-• Do NOT invent sections the reference doesn't have.`;
-    sectionRule = `SECTIONS: Rebuild the EXACT same section order and structure as the reference — adapted for this client's content.`;
-  }
-
-  if (cleanSpec) {
-    const p = spec.palette || {};
-    const order = ['bg', 'surface', 'text', 'muted', 'accent', 'accent2'];
-    const paletteCss = order
-      .filter((k) => p[k])
-      .map((k) => `  --${k}: ${p[k]};`)
-      .join('\n');
-    const hFont = (spec.font && spec.font.headingFont) || '';
-    const bFont = (spec.font && spec.font.bodyFont) || hFont;
-    const layout = spec.layout || {};
-    const layoutBlock = Object.keys(layout).length
-      ? `\nLAYOUT (implement each of these exactly):
-• Nav: ${layout.nav || 'match reference'}
-• Hero: ${layout.hero || 'match reference'}
-• Body sections: ${layout.contentSections || 'match reference'}
-• CTA/footer: ${layout.cta || 'match reference'}
-• Grid/flex patterns: ${layout.grid || 'match reference'}
-• Image placements: ${layout.images || 'use Unsplash stock photos wherever reference shows images'}`
-      : '';
-
-    designBrief = `\n\nMANDATORY DESIGN + LAYOUT SPEC (extracted pixel-by-pixel from the reference):
-Full spec: ${JSON.stringify(spec)}
-
-COLOURS — start your <style> with EXACTLY these CSS variables, use them everywhere:
-:root{
-${paletteCss}
-}
-THEME: This is a ${spec.isDark ? 'DARK' : 'LIGHT'} page — body background = var(--bg), body text = var(--text).
-FONTS: Load and use Google Fonts — headings: "${hFont || 'match reference'}", body: "${bFont || 'match reference'}". Add the <link> in <head>.
-STYLE: Border-radius = ${spec.radius || 'match reference'}. Buttons = ${spec.buttons || 'match reference'}. Cards = ${spec.cards || 'match reference'}. Spacing = ${spec.spacing || 'balanced'}.${layoutBlock}
-DISTINCTIVE DETAILS — implement EVERY one of these:
-${Array.isArray(spec.distinctive) ? spec.distinctive.map((d, i) => `${i + 1}. ${d}`).join('\n') : '(see reference)'}
-
-Do NOT substitute your own colours, fonts, or layout. The final page must visually match the reference.`;
-
-    if (Array.isArray(spec.sections) && spec.sections.length) {
-      sectionRule =
-        `SECTIONS (same order and structure as the reference — fill with this client's content):\n` +
-        spec.sections.map((s, i) => `${i + 1}. ${s}`).join('\n');
-    }
-  } else if (spec && spec.raw) {
-    designBrief = `\n\nDESIGNER NOTES FROM THE REFERENCE:\n${spec.raw}`;
-  }
-
   const extraNote = extra ? `\n\nADDITIONAL DIRECTION: ${extra}` : '';
 
-  const animationBlock = `
+  // ── Shared animation JS (injected into both paths) ──
+  const animJS = `<script>
+(function(){
+  var io=new IntersectionObserver(function(ee){ee.forEach(function(e){if(e.isIntersecting){e.target.classList.add('visible');io.unobserve(e.target);}});},{threshold:0.11});
+  document.querySelectorAll('.animate').forEach(function(el){io.observe(el);});
+  document.querySelectorAll('[data-count]').forEach(function(el){
+    var io2=new IntersectionObserver(function(ee){if(!ee[0].isIntersecting)return;io2.unobserve(el);
+      var end=+el.getAttribute('data-count'),sfx=el.getAttribute('data-suffix')||'',cur=0,
+          t=setInterval(function(){cur+=end/55;if(cur>=end){cur=end;clearInterval(t);}el.textContent=Math.round(cur).toLocaleString()+sfx;},28);
+    },{threshold:.5});
+    io2.observe(el);
+  });
+})();
+<\/script>`;
+
+  // ── Build sys prompt & userText depending on ref presence ──
+  let sys, userText;
+
+  if (hasRef) {
+    // ── REF PATH: short, focused prompt — let the image do the talking ──
+    // The longer the prompt, the more the model defaults to its trained patterns.
+    // With a reference image, keep instructions minimal so the visual signal dominates.
+
+    // Build spec hints (only if analysis succeeded)
+    let specHints = '';
+    if (cleanSpec) {
+      const p = spec.palette || {};
+      const css = spec.cssSnippets || {};
+      const hFont = (spec.font && spec.font.headingFont) || '';
+      const bFont = (spec.font && spec.font.bodyFont) || hFont;
+      const sections = Array.isArray(spec.sections) && spec.sections.length
+        ? 'Sections in this EXACT order: ' + spec.sections.join(' → ')
+        : '';
+      const distinctive = Array.isArray(spec.distinctive) && spec.distinctive.length
+        ? 'Visual details — replicate exactly:\n' + spec.distinctive.slice(0, 8).map((d, i) => `${i + 1}. ${d}`).join('\n')
+        : '';
+
+      // Build a mandatory CSS block the model must paste verbatim
+      const mandatoryCSS = [];
+      if (css.colorVars) {
+        mandatoryCSS.push(css.colorVars);
+      } else if (Object.keys(p).length) {
+        mandatoryCSS.push(`:root{${['bg','surface','text','muted','accent','accent2'].filter(k=>p[k]).map(k=>`--${k}:${p[k]}`).join(';')}}`);
+      }
+      if (css.navBar)       mandatoryCSS.push(css.navBar);
+      if (css.heroSection)  mandatoryCSS.push(css.heroSection);
+      if (css.featureCards) mandatoryCSS.push(css.featureCards);
+      if (css.ctaSection)   mandatoryCSS.push(css.ctaSection);
+
+      const mandatoryBlock = mandatoryCSS.length
+        ? `━━━ MANDATORY CSS — COPY VERBATIM INTO <style> TAG ━━━\n${mandatoryCSS.join('\n')}\n━━━ END MANDATORY CSS ━━━`
+        : '';
+
+      specHints = [
+        hFont && `FONTS: heading="${hFont}"${bFont && bFont !== hFont ? ` body="${bFont}"` : ''} — load from Google Fonts`,
+        spec.isDark !== undefined && `THEME: ${spec.isDark ? 'dark' : 'light'} background`,
+        mandatoryBlock,
+        sections,
+        distinctive,
+      ].filter(Boolean).join('\n\n');
+    }
+
+    sys = `You are an expert HTML/CSS developer. Your task: generate a complete, ready-to-publish HTML sales funnel page.
+
+OUTPUT RULES:
+• Raw HTML only — start with <!DOCTYPE html>, no markdown, no code fences
+• Single file — all CSS in one <style> tag, no external frameworks
+• Fully responsive — mobile-first, with @media (min-width:768px) for desktop
+• Real copy only — no placeholder text, no lorem ipsum
+• Match client language/tone (Hinglish/Gujarati/English — whatever the description uses)
+
+IMAGES:
+${imagePolicy}
+
+ANIMATIONS (add to every section):
+CSS: .animate{opacity:0;transform:translateY(32px);transition:opacity .6s ease,transform .6s ease} .animate.visible{opacity:1;transform:none} @keyframes heroIn{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+JS before </body>: ${animJS}
+Apply: hero headline/subhead → style="animation:heroIn .8s ease both" | every card/heading/testimonial → class="animate" | stat numbers → data-count="500" data-suffix="+"
+${specHints ? '\n' + specHints : ''}${extraNote}`;
+
+    userText = `CLIENT DESCRIPTION:
+"""
+${desc}
+"""
+
+Now generate the complete HTML sales funnel that matches the reference design shown directly above. Use all the client content from the description. Output ONLY the HTML document starting with <!DOCTYPE html>.`;
+
+  } else {
+    // ── NO-REF PATH: full detailed prompt ──
+    const animationBlock = `
 
 SCROLL ANIMATIONS — implement in every funnel (mandatory):
 Add these CSS rules inside your <style> tag:
@@ -321,72 +359,61 @@ Add these CSS rules inside your <style> tag:
   @keyframes heroIn{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:none}}
 
 Add this JS block just before </body>:
-  <script>
-  (function(){
-    var io=new IntersectionObserver(function(ee){ee.forEach(function(e){if(e.isIntersecting){e.target.classList.add('visible');io.unobserve(e.target);}});},{threshold:0.11});
-    document.querySelectorAll('.animate').forEach(function(el){io.observe(el);});
-    document.querySelectorAll('[data-count]').forEach(function(el){
-      var io2=new IntersectionObserver(function(ee){if(!ee[0].isIntersecting)return;io2.unobserve(el);
-        var end=+el.getAttribute('data-count'),sfx=el.getAttribute('data-suffix')||'',cur=0,
-            t=setInterval(function(){cur+=end/55;if(cur>=end){cur=end;clearInterval(t);}el.textContent=Math.round(cur).toLocaleString()+sfx;},28);
-      },{threshold:.5});
-      io2.observe(el);
-    });
-  })();
-  </script>
+  ${animJS}
 
 Apply animation classes exactly like this:
-• Hero headline + subhead: add style="animation:heroIn .8s ease both" (plays on page load, no observer)
+• Hero headline + subhead: add style="animation:heroIn .8s ease both"
 • Every section heading (h2, h3): add class="animate"
 • Every feature/benefit card: add class="animate"
-• Every testimonial/review card: add class="animate"
+• Every testimonial card: add class="animate"
 • Pricing/offer box: add class="animate anim-scale"
 • Left column in 2-col sections: add class="animate anim-left"
 • Right column in 2-col sections: add class="animate anim-right"
 • FAQ items: add class="animate"
-• Stat numbers: <span data-count="500" data-suffix="+">500+</span> (JS counts up on scroll)
-• Primary CTA buttons: add a pulsing glow @keyframes animation using the accent colour (repeat:infinite, 2.5s cycle)
-• All cards/feature boxes: add CSS transition + translateY(-5px) + deeper shadow on :hover
+• Stat numbers: <span data-count="500" data-suffix="+">500+</span>
+• Primary CTA buttons: pulsing glow @keyframes using accent colour (infinite, 2.5s)
+• All cards: CSS transition + translateY(-5px) + deeper shadow on :hover
 • All buttons: translateY(-2px) + shadow on :hover, scale(.97) on :active`;
 
-  const funnelLayoutRules = `
+    const funnelLayoutRules = `
 
-SALES FUNNEL LAYOUT RULES (mandatory — this is a SALES FUNNEL, not a generic website):
-• HERO: Always 2-column on desktop — headline/subhead/CTA LEFT (55%), ${hasHero ? 'client photo (placeholder above)' : 'relevant person/product photo'} RIGHT (45%). NEVER a full-width centered text-only hero. Mobile: stacked (content above, image below).
-• COACH / ABOUT: 2-column — photo LEFT (38%), bio/credentials/social proof RIGHT (62%). Mobile: photo stacked above text.
-• FEATURES / BENEFITS: Use alternating left-right rows for 2-4 items (visual one side, text other side). Use a 3-col icon+text grid for 5+ items. NEVER a text-only list.
-• TESTIMONIALS: Card grid — each card: avatar image LEFT, quote text + name RIGHT. Stars rating visible.
-• OFFER / PRICING: 2-column — value stack + bonus list LEFT, price box + CTA button RIGHT. Price box has accent border / glow.
-• PROBLEM SECTION: 2-col or alternating, with a visual or icon on one side.
-• DO NOT render any major section as a centered full-width wall of text — every section must have a visual element (image, icon, illustration, or decorative shape) alongside the copy.
-• Sticky nav must stay fixed at top with a prominent CTA button.`;
+SALES FUNNEL LAYOUT RULES (mandatory):
+• HERO: 2-column desktop — headline/subhead/CTA LEFT (55%), ${hasHero ? `client photo src="${CLIENT_PLACEHOLDER.hero}"` : 'relevant person/product photo'} RIGHT (45%). Mobile: stacked.
+• COACH/ABOUT: photo LEFT (38%), bio RIGHT (62%).
+• FEATURES: alternating left-right rows for 2-4 items; 3-col icon grid for 5+.
+• TESTIMONIALS: card grid — avatar LEFT, quote+name RIGHT, stars visible.
+• OFFER/PRICING: value stack LEFT, price box+CTA RIGHT. Price box has accent border/glow.
+• Every section needs a visual element — no wall-of-text sections.
+• Sticky nav with prominent CTA button.`;
 
-  const sys = `You are a world-class conversion copywriter AND senior landing-page designer. Build a complete ready-to-publish HTML sales funnel.
+    sys = `You are a world-class conversion copywriter AND senior landing-page designer. Build a complete ready-to-publish HTML sales funnel.
 
 OUTPUT: ONLY raw HTML starting with <!DOCTYPE html>. No markdown, no fences, no commentary.
 SINGLE FILE: All CSS inside one <style> tag. Load the required Google Font(s). No frameworks. Minimal vanilla JS only for FAQ accordion / smooth scroll / animations.
 ${imagePolicy}
 
-${sectionRule}
+${defaultSections}
 
 COPY: Real product name, exact price, audience, bonuses, guarantee, real numbers. No lorem ipsum. Match client's language/tone (Hinglish if description is Hinglish).
-DESIGN: Premium, modern, strong hierarchy, generous spacing, hover states, fully responsive (mobile + desktop @media).${funnelLayoutRules}${matchBlock}${designBrief}${animationBlock}${extraNote}`;
+DESIGN: Premium, modern, strong hierarchy, generous spacing, hover states, fully responsive (mobile + desktop @media).${funnelLayoutRules}${animationBlock}${extraNote}`;
 
-  const userText = `CLIENT DESCRIPTION:\n"""\n${desc}\n"""\n\nDesign and build the complete sales funnel. Output ONLY the HTML document starting with <!DOCTYPE html>.`;
+    userText = `CLIENT DESCRIPTION:\n"""\n${desc}\n"""\n\nDesign and build the complete sales funnel. Output ONLY the HTML document starting with <!DOCTYPE html>.`;
+  }
 
-  // Attach the reference at build time too — image in front of it while it
-  // writes CSS, on top of the hard-coded spec values.
+  const urlList = urlRefs.map((r) => '- ' + r.data).join('\n');
+  const urlBlock = urlList
+    ? `\n\nREFERENCE URLs (match this kind of design & tone; you cannot open them):\n${urlList}`
+    : '';
+
+  // ── Build content array: sys prompt FIRST, reference image(s) LAST ──
+  // Placing the image right before the generation instruction gives the model
+  // the strongest visual signal at the point it starts writing HTML.
   const content = [];
-  imgRefs.forEach((r, i) => {
-    content.push({
-      type: 'text',
-      text: `↓ REFERENCE DESIGN ${i + 1} — study this carefully. Your output must replicate: section order, column layout, hero structure, nav style, spacing rhythm, colours, fonts. Where the reference uses photos or images, use relevant Unsplash stock photos (same position, same size, same style). Do NOT embed this reference image itself.`,
-    });
-    content.push({
-      type: 'image',
-      source: { type: 'base64', media_type: r.mediaType, data: r.data },
-    });
-  });
+
+  // 1. Full system prompt
+  content.push({ type: 'text', text: sys + urlBlock });
+
+  // 2. PDF references
   pdfRefs.forEach((r, i) => {
     content.push({
       type: 'text',
@@ -398,20 +425,27 @@ DESIGN: Premium, modern, strong hierarchy, generous spacing, hover states, fully
     });
   });
 
-  const urlList = urlRefs.map((r) => '- ' + r.data).join('\n');
-  const urlBlock = urlList
-    ? `\n\nREFERENCE URLs (match this kind of design & tone; you cannot open them):\n${urlList}`
-    : '';
+  // 3. Image references — placed LAST so the model sees them immediately
+  //    before it starts writing HTML. This prevents the visual signal from
+  //    being buried under the system prompt text.
+  imgRefs.forEach((r, i) => {
+    content.push({
+      type: 'text',
+      text: `↓ REFERENCE DESIGN IMAGE ${i + 1} — The HTML you write must visually replicate THIS layout. Look at the exact grid structure, hero layout, section order, colours, fonts, card styles. Replace any photos/people in the reference with relevant Unsplash stock photos in the same position and size. Do NOT embed this reference image itself.`,
+    });
+    content.push({
+      type: 'image',
+      source: { type: 'base64', media_type: r.mediaType, data: r.data },
+    });
+  });
 
-  content.push({ type: 'text', text: sys + urlBlock + '\n\n' + userText });
+  // 4. Client description + generation trigger — immediately after the image
+  content.push({ type: 'text', text: userText });
 
   return {
     messages: [{ role: 'user', content: content.length === 1 ? content[0].text : content }],
-    // Give the model a small thinking budget when refs are present so it can
-    // reconcile the extracted spec with the reference image before writing HTML.
-    // No refs → no thinking needed (saves latency).
-    thinkingBudget: hasRef ? 2048 : 0,
-    temperature: hasRef ? 0.35 : 1, // very low → follows the spec tightly
+    thinkingBudget: hasRef ? 6144 : 0,
+    temperature: hasRef ? 0.5 : 1, // moderate — enough creativity to replicate the ref, not so low it defaults to trained patterns
     maxOutputTokens: 32000,
   };
 }

@@ -6,7 +6,6 @@ import react from '@vitejs/plugin-react';
 // so the front-end code can just fetch('/api/generate') exactly like before.
 export default defineConfig({
   plugins: [react()],
-  base: '/funnelCraft/',
   server: {
     port: 5173,
     proxy: {
