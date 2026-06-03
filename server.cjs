@@ -16,9 +16,23 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Free Gemini key — no credit card needed.
-// Get one here: https://aistudio.google.com/apikey
-const API_KEY = process.env.GEMINI_API_KEY;
+// Free Gemini keys — no credit card needed.
+// Get keys here: https://aistudio.google.com/apikey
+// Add up to 5 keys (GEMINI_API_KEY_1 … GEMINI_API_KEY_5) for automatic
+// rotation — when one key hits the rate limit the next one takes over.
+// GEMINI_API_KEY (no number) is also accepted as a single-key fallback.
+const API_KEYS = (() => {
+  const keys = [];
+  for (let i = 1; i <= 5; i++) {
+    const k = process.env[`GEMINI_API_KEY_${i}`];
+    if (k) keys.push(k);
+  }
+  const single = process.env.GEMINI_API_KEY;
+  if (single && !keys.includes(single)) keys.push(single);
+  return keys;
+})();
+
+let keyIndex = 0; // round-robin pointer
 
 // Which free model to use. flash-lite gives the most requests/day on free tier.
 // Options: gemini-2.5-flash-lite, gemini-2.5-flash, gemini-2.5-pro
@@ -72,9 +86,9 @@ function toGemini(messages) {
 
 // ── The endpoint the front-end calls ──
 app.post('/api/generate', async (req, res) => {
-  if (!API_KEY) {
+  if (API_KEYS.length === 0) {
     return res.status(500).json({
-      error: 'GEMINI_API_KEY is not set. Add the key to your .env file and restart the server.'
+      error: 'No Gemini API key set. Add GEMINI_API_KEY (or GEMINI_API_KEY_1 … _5) to your .env file and restart the server.'
     });
   }
 
@@ -88,7 +102,7 @@ app.post('/api/generate', async (req, res) => {
   for (const m of messages) {
     if (Array.isArray(m.content)) {
       for (const b of m.content) {
-        if (b.source?.data) inlineBytes += b.source.data.length * 0.75; // base64 -> bytes
+        if (b.source?.data) inlineBytes += b.source.data.length * 0.75;
       }
     }
   }
@@ -98,25 +112,36 @@ app.post('/api/generate', async (req, res) => {
     });
   }
 
-  try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`;
+  // Try each key in rotation; on 429 move to the next key immediately.
+  const startIndex = keyIndex;
+  for (let attempt = 0; attempt < API_KEYS.length; attempt++) {
+    const key = API_KEYS[keyIndex];
+    keyIndex = (keyIndex + 1) % API_KEYS.length;
 
-    const upstream = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: toGemini(messages),
-        generationConfig: {
-          maxOutputTokens: Number.isInteger(maxOutputTokens) ? maxOutputTokens : 32000,
-          temperature: typeof temperature === 'number' ? temperature : 1,
-          // Thinking OFF by default for page builds (avoids truncated HTML).
-          // Turned ON only for the reference analysis step.
-          ...(MODEL.includes('pro') ? {} : { thinkingConfig: { thinkingBudget: Number.isInteger(thinkingBudget) ? thinkingBudget : 0 } })
-        }
-      })
-    });
+    let upstream, data;
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`;
+      upstream = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: toGemini(messages),
+          generationConfig: {
+            maxOutputTokens: Number.isInteger(maxOutputTokens) ? maxOutputTokens : 32000,
+            temperature: typeof temperature === 'number' ? temperature : 1,
+            ...(MODEL.includes('pro') ? {} : { thinkingConfig: { thinkingBudget: Number.isInteger(thinkingBudget) ? thinkingBudget : 0 } })
+          }
+        })
+      });
+      data = await upstream.json();
+    } catch (err) {
+      return res.status(500).json({ error: 'Proxy error: ' + err.message });
+    }
 
-    const data = await upstream.json();
+    // Rate-limited on this key → try the next one immediately
+    if (upstream.status === 429 && attempt < API_KEYS.length - 1) {
+      continue;
+    }
 
     if (!upstream.ok) {
       return res.status(upstream.status).json({
@@ -133,11 +158,12 @@ app.post('/api/generate', async (req, res) => {
       return res.status(500).json({ error: 'Gemini returned an empty response (' + reason + '). Please try again.' });
     }
 
-    // Send back in Anthropic shape so the front-end works unchanged.
     res.json({ content: [{ type: 'text', text }] });
-  } catch (err) {
-    res.status(500).json({ error: 'Proxy error: ' + err.message });
+    return;
   }
+
+  // All keys rate-limited — fall back to the original wait-and-retry flow
+  res.status(429).json({ error: 'All API keys are rate-limited. Please wait a moment and try again.' });
 });
 
 app.all('/api/*', (req, res) => {
