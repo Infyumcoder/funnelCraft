@@ -107,7 +107,8 @@ Return ONLY raw JSON (no markdown, no commentary) in EXACTLY this shape:
    "hero":"describe hero layout — e.g. full-width dark bg; text block left 55%; decorative CSS shape right 45%; single large CTA below headline",
    "contentSections":"describe how body sections are laid out — e.g. alternating 2-col rows (text left / visual right); 3-col icon grid for features; full-width testimonial strip",
    "cta":"describe CTA/footer section — e.g. centered banner, large heading, 2 buttons side by side",
-   "grid":"CSS grid/flex patterns used — e.g. 12-col grid, card grids are repeat(3,1fr) gap-24px"
+   "grid":"CSS grid/flex patterns used — e.g. 12-col grid, card grids are repeat(3,1fr) gap-24px",
+   "images":"describe every image slot in the design — e.g. 'hero: full-width background photo of a person coaching', 'features: 3 small square photos in a row', 'testimonials: circular avatar photos 60px'"
  },
  "sections":["section names top-to-bottom that the reference uses"],
  "distinctive":["5-8 specific layout + visual details that make this design unique — be precise, e.g. 'hero has a diagonal clip-path divider', 'nav has a coloured left border accent', 'price box has a 3px glowing border'"]
@@ -138,7 +139,12 @@ export function buildMessages(desc, extra, spec, refs) {
   const hasRef = imgRefs.length > 0 || pdfRefs.length > 0;
   const cleanSpec = spec && !spec.raw && spec.palette;
 
-  const imagePolicy = `NO EXTERNAL IMAGES: Never embed or link to any image file (no <img>, no external URLs). Re-create EVERY visual with CSS gradients, shapes, and inline SVG only.`;
+  const imagePolicy = `IMAGES: You MAY and SHOULD use real stock photos wherever the reference design uses images (hero backgrounds, coach/product photos, testimonial avatars, feature visuals, etc.).
+Use free Unsplash photos via this URL pattern: https://images.unsplash.com/photo-PHOTO_ID?w=WIDTH&h=HEIGHT&fit=crop&auto=format
+Choose a specific, relevant Unsplash photo ID for each image slot — pick a real photo ID that matches the context (e.g. a coaching photo, a product flatlay, a person smiling, etc.). Do NOT use placeholder IDs — use actual Unsplash photo IDs you know exist.
+For avatars/testimonials use: https://i.pravatar.cc/SIZE?img=NUMBER (numbers 1–70).
+Always add width, height, alt, and object-fit:cover on <img> tags. Add onerror="this.style.opacity=0" as a fallback.
+Do NOT use picsum.photos (random) — always pick a contextually relevant photo.`;
 
   const defaultSections = `SECTIONS (in order):
 1. Sticky nav + CTA
@@ -183,7 +189,8 @@ Your output must look like it came from the SAME designer as the reference image
 • Hero: ${layout.hero || 'match reference'}
 • Body sections: ${layout.contentSections || 'match reference'}
 • CTA/footer: ${layout.cta || 'match reference'}
-• Grid/flex patterns: ${layout.grid || 'match reference'}`
+• Grid/flex patterns: ${layout.grid || 'match reference'}
+• Image placements: ${layout.images || 'use Unsplash stock photos wherever reference shows images'}`
       : '';
 
     designBrief = `\n\nMANDATORY DESIGN + LAYOUT SPEC (extracted pixel-by-pixel from the reference):
@@ -231,7 +238,7 @@ DESIGN: Premium, modern, strong hierarchy, generous spacing, hover states, fully
   imgRefs.forEach((r, i) => {
     content.push({
       type: 'text',
-      text: `↓ REFERENCE DESIGN ${i + 1} — study the LAYOUT STRUCTURE and VISUAL STYLE carefully. Your output must replicate: section order, column layout, hero structure, nav style, spacing rhythm, colours, fonts. Rebuild 100% in CSS/SVG — do NOT embed this image.`,
+      text: `↓ REFERENCE DESIGN ${i + 1} — study this carefully. Your output must replicate: section order, column layout, hero structure, nav style, spacing rhythm, colours, fonts. Where the reference uses photos or images, use relevant Unsplash stock photos (same position, same size, same style). Do NOT embed this reference image itself.`,
     });
     content.push({
       type: 'image',
