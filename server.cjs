@@ -22,7 +22,7 @@ const API_KEY = process.env.GEMINI_API_KEY;
 
 // Which free model to use. Flash is fast and good for HTML generation.
 // Options on the free tier: gemini-2.5-flash, gemini-2.5-flash-lite, gemini-2.5-pro
-const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
 
 // Bigger limit so large reference images don't get rejected before our
 // handler runs (a rejected body would otherwise become an HTML error page).
