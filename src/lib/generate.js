@@ -108,42 +108,43 @@ export async function analyzeReferences(refs, onToast) {
   });
   content.push({
     type: 'text',
-    text: `You are a senior UI/CSS engineer AND content analyst. Study the reference design(s) above PIXEL BY PIXEL.
-SAMPLE REAL COLOURS from the pixels — true hex values, no guesses.
-Return ONLY raw JSON (no markdown, no commentary) in EXACTLY this shape:
+    text: `You are a senior UI/CSS engineer AND content analyst. Study the reference design(s) above PIXEL BY PIXEL with extreme precision.
+SAMPLE REAL COLOURS from the actual pixels — true hex values only, no guesses.
+Extract EXACT CSS values — grid-template-columns pixel widths, exact padding values, exact font sizes.
+Return ONLY raw JSON (no markdown, no commentary, no code fences) in EXACTLY this shape:
 {
  "mood":"2-4 words",
  "palette":{"bg":"#hex","surface":"#hex","text":"#hex","muted":"#hex","accent":"#hex","accent2":"#hex"},
  "isDark": true|false,
- "font":{"headingFont":"exact Google Font name","bodyFont":"exact Google Font name","feel":"e.g. bold condensed"},
+ "font":{"headingFont":"exact Google Font name or system font","bodyFont":"exact Google Font name or system font","headingSize":"e.g. 52px","bodySize":"e.g. 16px","headingWeight":"e.g. 800","feel":"e.g. bold condensed"},
  "radius":"sharp|slightly-rounded|rounded|pill",
- "buttons":"describe shape, fill colour, text colour, border, shadow",
- "cards":"describe borders, shadow, background fill, inner layout",
+ "buttons":"exact CSS — background, color, padding, border-radius, font-weight, border, box-shadow",
+ "cards":"exact CSS — background, border, border-radius, padding, box-shadow, inner layout direction",
  "spacing":"tight|balanced|airy",
  "layout":{
-   "nav":"exact nav CSS description — e.g. position:fixed; display:flex; justify-content:space-between; background:rgba(0,0,0,0.9); padding:0 60px; height:70px",
-   "hero":"exact hero CSS layout — e.g. display:grid; grid-template-columns:55% 45%; min-height:90vh; padding:80px 60px — plus describe: background type, text alignment, CTA position",
-   "contentSections":"describe each body section CSS pattern — e.g. section 2: display:flex; flex-direction:row-reverse; gap:60px; section 3: display:grid; grid-template-columns:repeat(3,1fr); gap:32px",
-   "cta":"CTA/footer section layout — e.g. text-align:center; padding:120px 60px; background:linear-gradient(...)",
-   "grid":"main grid/flex patterns — e.g. max-width:1200px; margin:0 auto; sections use 80px top/bottom padding",
-   "images":"every image slot with its CSS — e.g. hero right col: width:100%; height:500px; object-fit:cover; border-radius:20px"
+   "nav":"exact CSS — position, display, justify-content, align-items, background, padding, height, border-bottom, z-index",
+   "hero":"exact CSS — display, grid-template-columns OR flex layout, min-height, padding, background, gap — plus: text alignment, CTA position, image position (left/right/center)",
+   "contentSections":"for EACH section describe: display, grid-template-columns or flex direction, gap, padding, background, alignment — e.g. 'Benefits: display:grid; grid-template-columns:repeat(3,1fr); gap:32px; padding:80px 60px'",
+   "cta":"exact CSS for final CTA/footer — background, padding, text-align, border-top",
+   "grid":"wrapper layout — max-width, margin, standard section vertical padding",
+   "images":"each image slot: exact CSS — width, height, object-fit, border-radius, position within its container"
  },
  "cssSnippets":{
-   "heroSection":"copy-paste ready CSS for the hero section — background, display, grid-template-columns, padding, min-height, gap — be exact",
-   "navBar":"copy-paste ready CSS for the navbar — position, display, justify-content, background, padding, height, z-index",
-   "featureCards":"copy-paste ready CSS for feature/benefit cards — display, grid-template-columns or flex, background, border-radius, padding, box-shadow",
-   "ctaSection":"copy-paste ready CSS for the final CTA section — background, padding, text-align",
-   "colorVars":":root { --bg: #hex; --surface: #hex; --text: #hex; --accent: #hex; --accent2: #hex; }"
+   "heroSection":"COMPLETE copy-paste CSS for hero section class — include all properties: background, display, grid-template-columns, min-height, padding, gap, align-items",
+   "navBar":"COMPLETE copy-paste CSS for nav — position, top, left, right, display, justify-content, align-items, background, padding, height, z-index, border-bottom",
+   "featureCards":"COMPLETE copy-paste CSS for feature/benefit cards wrapper AND card — display, grid-template-columns, gap, card background, border-radius, padding, box-shadow",
+   "ctaSection":"COMPLETE copy-paste CSS for final CTA — background, padding, text-align",
+   "colorVars":"COMPLETE :root block — :root { --bg: #hex; --surface: #hex; --text: #hex; --muted: #hex; --accent: #hex; --accent2: #hex; }"
  },
- "sections":["exact section names top-to-bottom as they appear in the reference"],
- "distinctive":["8-10 unique CSS/visual details — be very specific e.g. 'hero uses clip-path:polygon(0 0,100% 0,100% 88%,0 100%)', 'cards have border-left:4px solid accent', 'price box glows with box-shadow:0 0 40px accent'"],
+ "sections":["ALL section names in exact top-to-bottom order as they appear in the reference — be comprehensive"],
+ "distinctive":["10 unique CSS/visual details that make this design distinctive — be very specific with actual CSS values, e.g. 'hero uses clip-path:polygon(0 0,100% 0,100% 85%,0 100%)', 'cards have left accent border: border-left:4px solid #accent', 'price box glows: box-shadow:0 0 40px rgba(accent,0.4)', 'section dividers use diagonal clip-path', 'testimonial cards have top-left quote mark 80px in accent color'"],
  "extractedContent":{
    "productName": "exact product/service name or null",
-   "price": "exact price with currency or null",
+   "price": "exact price with currency symbol or null",
    "heroHeadline": "exact headline text or null",
    "heroSubhead": "exact subheadline or null",
-   "benefits": ["all readable benefit/feature bullets"],
-   "testimonials": [{"name": "name", "quote": "quote text"}],
+   "benefits": ["all readable benefit/feature bullets — include all you can read"],
+   "testimonials": [{"name": "name", "quote": "full quote text"}],
    "guarantee": "guarantee text or null",
    "ctaText": "CTA button text or null",
    "targetAudience": "target audience description or null",
@@ -276,11 +277,7 @@ For ALL OTHER image slots (testimonial avatars, feature icons, background accent
   let sys, userText;
 
   if (hasRef) {
-    // ── REF PATH: short, focused prompt — let the image do the talking ──
-    // The longer the prompt, the more the model defaults to its trained patterns.
-    // With a reference image, keep instructions minimal so the visual signal dominates.
-
-    // Build spec hints (only if analysis succeeded)
+    // Build spec hints from the design analysis (only if analysis succeeded)
     let specHints = '';
     if (cleanSpec) {
       const p = spec.palette || {};
@@ -291,7 +288,7 @@ For ALL OTHER image slots (testimonial avatars, feature icons, background accent
         ? 'Sections in this EXACT order: ' + spec.sections.join(' → ')
         : '';
       const distinctive = Array.isArray(spec.distinctive) && spec.distinctive.length
-        ? 'Visual details — replicate exactly:\n' + spec.distinctive.slice(0, 8).map((d, i) => `${i + 1}. ${d}`).join('\n')
+        ? 'Replicate these visual details exactly:\n' + spec.distinctive.slice(0, 10).map((d, i) => `${i + 1}. ${d}`).join('\n')
         : '';
 
       // Build a mandatory CSS block the model must paste verbatim
@@ -307,42 +304,71 @@ For ALL OTHER image slots (testimonial avatars, feature icons, background accent
       if (css.ctaSection)   mandatoryCSS.push(css.ctaSection);
 
       const mandatoryBlock = mandatoryCSS.length
-        ? `━━━ MANDATORY CSS — COPY VERBATIM INTO <style> TAG ━━━\n${mandatoryCSS.join('\n')}\n━━━ END MANDATORY CSS ━━━`
+        ? `━━━ MANDATORY CSS — PASTE VERBATIM INTO <style> ━━━\n${mandatoryCSS.join('\n')}\n━━━ END MANDATORY CSS ━━━`
         : '';
 
       specHints = [
-        hFont && `FONTS: heading="${hFont}"${bFont && bFont !== hFont ? ` body="${bFont}"` : ''} — load from Google Fonts`,
-        spec.isDark !== undefined && `THEME: ${spec.isDark ? 'dark' : 'light'} background`,
+        hFont && `FONTS: heading="${hFont}"${bFont && bFont !== hFont ? ` body="${bFont}"` : ''} — import from Google Fonts`,
+        spec.isDark !== undefined && `THEME: ${spec.isDark ? 'dark' : 'light'} background — ${spec.isDark ? 'dark body, light text' : 'light body, dark text'}`,
         mandatoryBlock,
         sections,
+        spec.layout?.hero && `HERO LAYOUT: ${spec.layout.hero}`,
+        spec.layout?.nav && `NAV LAYOUT: ${spec.layout.nav}`,
+        spec.layout?.contentSections && `CONTENT SECTIONS LAYOUT: ${spec.layout.contentSections}`,
+        spec.spacing && `SPACING: ${spec.spacing}`,
+        spec.radius && `BORDER-RADIUS style: ${spec.radius}`,
         distinctive,
       ].filter(Boolean).join('\n\n');
     }
 
-    sys = `You are an expert HTML/CSS developer. Your task: generate a complete, ready-to-publish HTML sales funnel page.
+    // Always include a strong replication directive — even if spec analysis failed,
+    // the model must still replicate the visual layout from the reference image.
+    const replicationDirective = `
+━━━ PRIMARY MISSION: PIXEL-PERFECT LAYOUT REPLICATION ━━━
+The reference image(s) in this message are your MASTER DESIGN BLUEPRINT.
+YOU MUST REPLICATE:
+  ✓ Every section — same top-to-bottom order as in the reference
+  ✓ Hero layout — same grid (columns, widths, image position, text alignment)
+  ✓ Nav bar — same position (fixed/sticky), height, background, link style
+  ✓ Color palette — exact hex values from the reference (no defaults)
+  ✓ Typography — same font family, sizes, weights, letter-spacing
+  ✓ Cards/features — same border-radius, shadow, padding, background
+  ✓ Spacing & rhythm — same section padding, gap between elements
+  ✓ Buttons — same shape, fill, border, shadow as in the reference
+  ✓ All decorative details — gradients, dividers, icons, badge styles
+YOU MUST REPLACE:
+  → Text content → use client description below
+  → People/product photos → use Unsplash stock or client image placeholders
+FORBIDDEN:
+  ✗ Do NOT invent new sections not in the reference
+  ✗ Do NOT reorder sections
+  ✗ Do NOT use a default generic funnel template
+━━━ END MISSION ━━━`.trim();
 
-OUTPUT RULES:
-• Raw HTML only — start with <!DOCTYPE html>, no markdown, no code fences
-• Single file — all CSS in one <style> tag, no external frameworks
-• Fully responsive — mobile-first, with @media (min-width:768px) for desktop
-• Real copy only — no placeholder text, no lorem ipsum
-• Match client language/tone (Hinglish/Gujarati/English — whatever the description uses)
+    sys = `You are a senior HTML/CSS developer replicating a reference design as a complete sales funnel page.
+
+OUTPUT: Raw HTML only — <!DOCTYPE html> first. No markdown fences. All CSS in one <style> tag, no frameworks.
+Fully responsive: mobile-first + @media (min-width:768px) for desktop layout.
+Match client language/tone exactly (Hinglish / Gujarati / English).
 
 IMAGES:
 ${imagePolicy}
 
-ANIMATIONS (add to every section):
+ANIMATIONS:
 CSS: .animate{opacity:0;transform:translateY(32px);transition:opacity .6s ease,transform .6s ease} .animate.visible{opacity:1;transform:none} @keyframes heroIn{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
 JS before </body>: ${animJS}
-Apply: hero headline/subhead → style="animation:heroIn .8s ease both" | every card/heading/testimonial → class="animate" | stat numbers → data-count="500" data-suffix="+"
-${specHints ? '\n' + specHints : ''}${extraNote}`;
+Apply: hero headline/subhead → style="animation:heroIn .8s ease both" | cards/headings/testimonials → class="animate" | stat numbers → data-count="500" data-suffix="+"
 
-    userText = `CLIENT DESCRIPTION:
+${replicationDirective}${specHints ? '\n\n' + specHints : ''}${extraNote}`;
+
+    userText = `CLIENT CONTENT (text & copy only — all layout decisions come from the reference image):
 """
 ${desc}
 """
 
-Now generate the complete HTML sales funnel that matches the reference design shown directly above. Use all the client content from the description. Output ONLY the HTML document starting with <!DOCTYPE html>.`;
+The reference design image is shown directly above in this conversation.
+TASK: Replicate its EXACT layout section-by-section. Use client content for text. Replace photos with stock images in the same position/size.
+Output ONLY the complete HTML document starting with <!DOCTYPE html>. Do not truncate — output the full page.`;
 
   } else {
     // ── NO-REF PATH: full detailed prompt ──
@@ -431,7 +457,7 @@ DESIGN: Premium, modern, strong hierarchy, generous spacing, hover states, fully
   imgRefs.forEach((r, i) => {
     content.push({
       type: 'text',
-      text: `↓ REFERENCE DESIGN IMAGE ${i + 1} — The HTML you write must visually replicate THIS layout. Look at the exact grid structure, hero layout, section order, colours, fonts, card styles. Replace any photos/people in the reference with relevant Unsplash stock photos in the same position and size. Do NOT embed this reference image itself.`,
+      text: `↓ REFERENCE DESIGN IMAGE ${i + 1} — REPLICATE THIS LAYOUT EXACTLY. Study every pixel: grid columns, section order, hero structure, nav bar, colors, fonts, card shapes, spacing, button styles. Your HTML must mirror this image's visual structure. Replace photos/people with Unsplash stock in identical positions/sizes. Do NOT embed this image itself.`,
     });
     content.push({
       type: 'image',
@@ -445,7 +471,7 @@ DESIGN: Premium, modern, strong hierarchy, generous spacing, hover states, fully
   return {
     messages: [{ role: 'user', content: content.length === 1 ? content[0].text : content }],
     thinkingBudget: hasRef ? 6144 : 0,
-    temperature: hasRef ? 0.5 : 1, // moderate — enough creativity to replicate the ref, not so low it defaults to trained patterns
+    temperature: hasRef ? 0.2 : 1, // low for ref path — strict replication, no creative drift
     maxOutputTokens: 32000,
   };
 }
