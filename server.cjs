@@ -9,9 +9,9 @@
 // Gemini's reply back to Anthropic shape on the way in — so the front-end
 // needs ZERO changes.
 
-require('dotenv').config();
-const express = require('express');
 const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+const express = require('express');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -172,5 +172,8 @@ app.all('/api/*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`\n  FunnelCraft running 👉  http://localhost:${PORT}`);
-  console.log(`  Model: ${MODEL} (Google Gemini, free tier)\n`);
+  console.log(`  Model: ${MODEL} | API keys loaded: ${API_KEYS.length}\n`);
+  if (API_KEYS.length === 0) {
+    console.log('  ⚠  No API keys found! Add GEMINI_API_KEY_1 (or GEMINI_API_KEY) to your .env file.\n');
+  }
 });
