@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Bolt,
   Monitor,
@@ -29,8 +29,16 @@ export default function RightPanel({
   onDownload,
   onCopy,
   onOpenTab,
+  onEdit,
 }) {
   const iframeRef = useRef(null);
+  const [editInput, setEditInput] = useState('');
+
+  function handleEdit() {
+    if (!editInput.trim()) return;
+    onEdit(editInput);
+    setEditInput('');
+  }
 
   // Render the generated HTML into the iframe via a Blob URL (avoids
   // sandbox/srcdoc restrictions), exactly like the original renderFunnel().
@@ -177,6 +185,21 @@ export default function RightPanel({
           </>
         )}
       </div>
+
+      {showActions && (
+        <div className="edit-bar">
+          <input
+            className="edit-inp"
+            placeholder='Edit layout in any language... e.g. "Hero dark karo", "Add FAQ", "Button orange karo", "હીરો સેક્શન બદલો"'
+            value={editInput}
+            onChange={(e) => setEditInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleEdit()}
+          />
+          <button className="edit-btn" onClick={handleEdit} disabled={!editInput.trim()}>
+            Apply ↗
+          </button>
+        </div>
+      )}
 
       {showActions && (
         <div className="bbar">

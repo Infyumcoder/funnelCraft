@@ -4,7 +4,7 @@ import LeftPanel from './components/LeftPanel';
 import RightPanel from './components/RightPanel';
 import Toast from './components/Toast';
 import { VARIATION_PROMPTS } from './lib/data';
-import { apiGenerate, analyzeReferences, buildMessages, extractHtml } from './lib/generate';
+import { apiGenerate, analyzeReferences, buildMessages, editFunnel, extractHtml } from './lib/generate';
 
 export default function App() {
   const [desc, setDesc] = useState('');
@@ -91,6 +91,22 @@ export default function App() {
     if (lastDesc.current) runGen(lastDesc.current, VARIATION_PROMPTS[v]);
   }
 
+  async function applyEdit(instruction) {
+    if (!html || !instruction.trim() || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const updated = await editFunnel(html, instruction.trim(), toast);
+      if (!updated.trim()) throw new Error('Empty response. Please try again.');
+      setHtml(extractHtml(updated));
+      toast('Layout updated!');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // ── EXPORT actions ──
   function dlHtml() {
     if (!html) return;
@@ -138,6 +154,7 @@ export default function App() {
           onDownload={dlHtml}
           onCopy={cpCode}
           onOpenTab={openTab}
+          onEdit={applyEdit}
         />
       </div>
       <Toast message={toastMsg} show={toastShow} />

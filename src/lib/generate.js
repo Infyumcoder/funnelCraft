@@ -274,7 +274,31 @@ DESIGN: Premium, modern, strong hierarchy, generous spacing, hover states, fully
   };
 }
 
-// ── EXTRACT HTML ──
+// ── STEP 3 (optional): EDIT AN EXISTING FUNNEL ──
+export async function editFunnel(currentHtml, instruction, onToast) {
+  const content = `You are a senior HTML/CSS/JS developer editing an existing landing page.
+
+USER'S EDIT INSTRUCTION (understand this in ANY language — English, Hindi, Gujarati, Hinglish, or any mix):
+"""
+${instruction}
+"""
+
+RULES:
+1. Understand the instruction no matter what language it is written in.
+2. Make ONLY the specific changes the user described — do not redesign or restructure anything else.
+3. Preserve ALL existing copy, sections, colours, fonts, images, and layout that are not mentioned.
+4. Output the COMPLETE updated HTML document starting with <!DOCTYPE html>.
+5. No markdown, no fences, no explanation — raw HTML only.
+
+CURRENT HTML TO EDIT:
+${currentHtml}`;
+
+  const data = await apiGenerate(
+    { messages: [{ role: 'user', content }], maxOutputTokens: 32000, thinkingBudget: 0, temperature: 0.2 },
+    onToast
+  );
+  return (data.content || []).map((b) => b.text || '').join('');
+}
 export function extractHtml(text) {
   let t = (text || '').trim();
   t = t.replace(/^```(?:html)?\s*/i, '').replace(/```\s*$/, '').trim();
