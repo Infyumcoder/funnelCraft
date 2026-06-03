@@ -90,7 +90,8 @@ export async function analyzeReferences(refs, onToast) {
   });
   content.push({
     type: 'text',
-    text: `You are a senior UI designer. Look VERY carefully at the reference design(s) above and extract its exact design system so it can be rebuilt. SAMPLE THE REAL COLOURS from the pixels (give true hex values, not guesses).
+    text: `You are a senior UI/layout engineer. Study the reference design(s) above PIXEL BY PIXEL and extract BOTH the visual design system AND the exact layout structure so the page can be rebuilt identically.
+SAMPLE REAL COLOURS from the pixels (true hex, no guesses).
 Return ONLY raw JSON (no markdown, no commentary) in EXACTLY this shape:
 {
  "mood":"2-4 words",
@@ -98,11 +99,18 @@ Return ONLY raw JSON (no markdown, no commentary) in EXACTLY this shape:
  "isDark": true|false,
  "font":{"headingFont":"a real Google Font matching the headings","bodyFont":"a real Google Font matching the body","feel":"e.g. bold condensed / elegant serif / clean geometric"},
  "radius":"sharp|slightly-rounded|rounded|pill",
- "buttons":"shape, fill colour, hover",
- "cards":"borders, shadow, fill",
+ "buttons":"shape, fill colour, hover style",
+ "cards":"borders, shadow, fill, layout inside card",
  "spacing":"tight|balanced|airy",
- "sections":["section types top-to-bottom that the reference uses"],
- "distinctive":["3-6 specific copyable visual details that make this design unique"]
+ "layout":{
+   "nav":"describe nav structure — e.g. fixed bar: logo left, links center, CTA button right",
+   "hero":"describe hero layout — e.g. full-width dark bg; text block left 55%; decorative CSS shape right 45%; single large CTA below headline",
+   "contentSections":"describe how body sections are laid out — e.g. alternating 2-col rows (text left / visual right); 3-col icon grid for features; full-width testimonial strip",
+   "cta":"describe CTA/footer section — e.g. centered banner, large heading, 2 buttons side by side",
+   "grid":"CSS grid/flex patterns used — e.g. 12-col grid, card grids are repeat(3,1fr) gap-24px"
+ },
+ "sections":["section names top-to-bottom that the reference uses"],
+ "distinctive":["5-8 specific layout + visual details that make this design unique — be precise, e.g. 'hero has a diagonal clip-path divider', 'nav has a coloured left border accent', 'price box has a 3px glowing border'"]
 }`,
   });
 
@@ -150,9 +158,13 @@ export function buildMessages(desc, extra, spec, refs) {
   let sectionRule = defaultSections;
 
   if (hasRef) {
-    matchBlock = `\n\nCRITICAL — THE PAGE MUST MATCH THE REFERENCE DESIGN:
-Make this page look like it came from the SAME designer/brand as the reference. Do NOT use your generic default look. Specifically do NOT default to the "Inter" font or purple/indigo (#6B21FE / #6366F1) gradients unless the reference uses them.`;
-    sectionRule = `SECTIONS: Use the same kinds of sections and order the reference shows, rebuilt for THIS client's offer.`;
+    matchBlock = `\n\nCRITICAL — LAYOUT + DESIGN MUST MATCH THE REFERENCE EXACTLY:
+Your output must look like it came from the SAME designer as the reference image. A viewer should see both pages side by side and say "same site." This means:
+• Copy the LAYOUT structure precisely — hero split/centered/full-bg, column counts, nav position, section widths.
+• Copy the VISUAL style — exact colours, font weights, border-radius, shadow style.
+• Do NOT fall back to your default look (no generic Inter font, no purple/indigo gradients unless the reference uses them).
+• Do NOT invent sections the reference doesn't have.`;
+    sectionRule = `SECTIONS: Rebuild the EXACT same section order and structure as the reference — adapted for this client's content.`;
   }
 
   if (cleanSpec) {
@@ -164,21 +176,34 @@ Make this page look like it came from the SAME designer/brand as the reference. 
       .join('\n');
     const hFont = (spec.font && spec.font.headingFont) || '';
     const bFont = (spec.font && spec.font.bodyFont) || hFont;
-    designBrief = `\n\nUSE THIS EXACT DESIGN SYSTEM (extracted from the reference — these are mandatory):
+    const layout = spec.layout || {};
+    const layoutBlock = Object.keys(layout).length
+      ? `\nLAYOUT (implement each of these exactly):
+• Nav: ${layout.nav || 'match reference'}
+• Hero: ${layout.hero || 'match reference'}
+• Body sections: ${layout.contentSections || 'match reference'}
+• CTA/footer: ${layout.cta || 'match reference'}
+• Grid/flex patterns: ${layout.grid || 'match reference'}`
+      : '';
+
+    designBrief = `\n\nMANDATORY DESIGN + LAYOUT SPEC (extracted pixel-by-pixel from the reference):
 Full spec: ${JSON.stringify(spec)}
 
-1) Begin your <style> with EXACTLY these CSS variables and use them everywhere (bg = page background, text = body text, accent = primary buttons/highlights):
+COLOURS — start your <style> with EXACTLY these CSS variables, use them everywhere:
 :root{
 ${paletteCss}
 }
-2) This is a ${spec.isDark ? 'DARK' : 'LIGHT'} theme — set the body background to var(--bg) and text to var(--text) accordingly.
-3) Load and USE these Google Fonts — headings: "${hFont || 'match the reference'}", body: "${bFont || 'match the reference'}". Put the correct <link> in <head>.
-4) Radius: ${spec.radius || 'as seen'}. Buttons: ${spec.buttons || 'match reference'}. Cards: ${spec.cards || 'match reference'}. Spacing: ${spec.spacing || 'balanced'}.
-5) Implement EACH of these distinctive details: ${Array.isArray(spec.distinctive) ? spec.distinctive.join('; ') : ''}.
-Do NOT substitute your own colours or fonts. The look must clearly resemble the reference.`;
+THEME: This is a ${spec.isDark ? 'DARK' : 'LIGHT'} page — body background = var(--bg), body text = var(--text).
+FONTS: Load and use Google Fonts — headings: "${hFont || 'match reference'}", body: "${bFont || 'match reference'}". Add the <link> in <head>.
+STYLE: Border-radius = ${spec.radius || 'match reference'}. Buttons = ${spec.buttons || 'match reference'}. Cards = ${spec.cards || 'match reference'}. Spacing = ${spec.spacing || 'balanced'}.${layoutBlock}
+DISTINCTIVE DETAILS — implement EVERY one of these:
+${Array.isArray(spec.distinctive) ? spec.distinctive.map((d, i) => `${i + 1}. ${d}`).join('\n') : '(see reference)'}
+
+Do NOT substitute your own colours, fonts, or layout. The final page must visually match the reference.`;
+
     if (Array.isArray(spec.sections) && spec.sections.length) {
       sectionRule =
-        `SECTIONS (rebuild this structure from the reference, adapt each to this client):\n` +
+        `SECTIONS (same order and structure as the reference — fill with this client's content):\n` +
         spec.sections.map((s, i) => `${i + 1}. ${s}`).join('\n');
     }
   } else if (spec && spec.raw) {
@@ -206,7 +231,7 @@ DESIGN: Premium, modern, strong hierarchy, generous spacing, hover states, fully
   imgRefs.forEach((r, i) => {
     content.push({
       type: 'text',
-      text: `↓ REFERENCE DESIGN ${i + 1} — match this look (rebuild in CSS, do NOT embed it)`,
+      text: `↓ REFERENCE DESIGN ${i + 1} — study the LAYOUT STRUCTURE and VISUAL STYLE carefully. Your output must replicate: section order, column layout, hero structure, nav style, spacing rhythm, colours, fonts. Rebuild 100% in CSS/SVG — do NOT embed this image.`,
     });
     content.push({
       type: 'image',
