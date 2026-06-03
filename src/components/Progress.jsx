@@ -26,17 +26,17 @@ export default function Progress({ hasRef }) {
       t: 15,
       prev: null,
       icon: <ClockFill />,
-      label: hasRef ? 'Analyzing reference design...' : 'Reading description...',
+      label: hasRef ? 'Reference design analyze kari rahyo...' : 'Description read kari rahyo...',
     },
-    { id: 2, t: 38, prev: 15, icon: <CheckCircle />, label: 'Planning page structure...' },
+    { id: 2, t: 38, prev: 15, icon: <CheckCircle />, label: 'Page structure plan kari rahyo...' },
     {
       id: 3,
       t: 68,
       prev: 38,
       icon: <Monitor />,
-      label: hasRef ? 'Matching reference design...' : 'Writing copy & designing...',
+      label: hasRef ? 'Reference design match kari rahyo...' : 'Copy lakhine design kari rahyo...',
     },
-    { id: 4, t: 88, prev: 68, icon: <Bolt />, label: 'Final polish + preparing preview...' },
+    { id: 4, t: 88, prev: 68, icon: <Bolt />, label: 'Final polish + preview ready kari rahyo...' },
   ];
 
   return (
@@ -44,7 +44,7 @@ export default function Progress({ hasRef }) {
       <div className="prog-top">
         <div className="prog-lbl">
           <Bolt width="13" height="13" style={{ fill: 'var(--ac)' }} />
-          {hasRef ? 'Reference study + funnel design...' : 'Designing funnel...'}
+          {hasRef ? 'Reference study + funnel design...' : 'Funnel design kari rahyo chhe...'}
         </div>
         <div className="prog-pct">{Math.round(pct)}%</div>
       </div>
