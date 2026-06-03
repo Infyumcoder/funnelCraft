@@ -18,7 +18,7 @@ export default function ReferencePanel({ refs, setRefs, toast }) {
       return prev;
     });
     if (blocked) {
-      toast('Maximum 10 references add thai gaya!');
+      toast('Maximum 10 references already added!');
       return;
     }
 
@@ -73,7 +73,7 @@ export default function ReferencePanel({ refs, setRefs, toast }) {
   function addUrl() {
     const v = urlVal.trim();
     if (!v.startsWith('http')) {
-      toast('Valid URL enter karo');
+      toast('Please enter a valid URL');
       return;
     }
     let blocked = false;
@@ -154,7 +154,7 @@ export default function ReferencePanel({ refs, setRefs, toast }) {
               <ImageIcon />
             </div>
             <div className="dz-t">Drop reference designs here</div>
-            <div className="dz-s">AI aana parthi sections design karse</div>
+            <div className="dz-s">AI will design sections based on this</div>
             <div className="dz-f">PNG · JPG · WEBP · up to 10</div>
           </div>
         </div>
@@ -183,7 +183,7 @@ export default function ReferencePanel({ refs, setRefs, toast }) {
         {/* URL TAB */}
         <div className={'rpanel' + (tab === 'url' ? ' on' : '')}>
           <div className="url-hint">
-            <Info /> Live funnel ya landing page URL
+            <Info /> Live funnel or landing page URL
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
             <input

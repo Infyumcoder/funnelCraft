@@ -7,7 +7,7 @@ const CHIPS = [
   ['+ Social Proof', '500+ happy students with strong social proof.'],
   ['+ Bonuses', 'Bonuses: templates, swipe files, live Q&A.'],
   ['+ Urgency', 'Limited seats — only 20 spots left.'],
-  ['+ Hinglish', 'Bold Hinglish tone use karo.'],
+  ['+ Hinglish', 'Use bold Hinglish tone.'],
 ];
 
 const EXAMPLE_ROWS = [
@@ -28,7 +28,7 @@ export default function LeftPanel({ desc, setDesc, refs, setRefs, onGenerate, bu
     <div className="lp">
       <div className="ph">
         <div className="pt">Client Description</div>
-        <div className="ps">Client info paste karo — AI complete funnel banavi dese</div>
+        <div className="ps">Paste client info — AI will build a complete funnel</div>
       </div>
 
       <div className="pb">
@@ -41,7 +41,7 @@ export default function LeftPanel({ desc, setDesc, refs, setRefs, onGenerate, bu
             className="ta"
             value={desc}
             onChange={(e) => setDesc(e.target.value)}
-            placeholder="Example: Maro client ek Digital Marketing course vecho che. Course nu naam 'Growth Formula' che. Price ₹4,999. 6 modules, live Q&A, 500+ students, 30-day guarantee..."
+            placeholder="Example: My client sells a Digital Marketing course called 'Growth Formula'. Price ₹4,999. 6 modules, live Q&A, 500+ students, 30-day guarantee..."
           />
         </div>
 

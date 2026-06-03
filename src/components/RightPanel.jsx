@@ -110,19 +110,18 @@ export default function RightPanel({
             <div className="empty-ic">
               <Bolt />
             </div>
-            <div className="empty-t">Funnel preview ahiya dekhase</div>
+            <div className="empty-t">Funnel preview will appear here</div>
             <div className="empty-d">
-              Description paste karo, optionally references add karo, pachhi Generate karo — AI complete landing page
-              banavi dese.
+              Paste a description, optionally add references, then click Generate — AI will build a complete landing page.
             </div>
             <div className="steps">
               <div className="srow">
                 <div className="sn">1</div>
-                <div className="st">Client description paste karo</div>
+                <div className="st">Paste client description</div>
               </div>
               <div className="srow">
                 <div className="sn">2</div>
-                <div className="st">References add karo (optional)</div>
+                <div className="st">Add references (optional)</div>
               </div>
               <div className="srow">
                 <div className="sn">3</div>

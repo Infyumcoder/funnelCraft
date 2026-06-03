@@ -64,7 +64,7 @@ export default function App() {
       const payload = buildMessages(description, extra, spec, refs);
       const data = await apiGenerate(payload, toast);
       const text = (data.content || []).map((b) => b.text || '').join('');
-      if (!text.trim()) throw new Error(data.error?.message || 'Empty response. Retry karo.');
+      if (!text.trim()) throw new Error(data.error?.message || 'Empty response. Please retry.');
       setHtml(extractHtml(text));
       setView('prev');
       toast('Funnel ready! Desktop + Mobile preview available.');
@@ -78,7 +78,7 @@ export default function App() {
   function generate() {
     const d = desc.trim();
     if (!d) {
-      toast('Description paste karo pehla!');
+      toast('Please paste a description first!');
       return;
     }
     lastDesc.current = d;

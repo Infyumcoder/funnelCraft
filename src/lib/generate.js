@@ -36,7 +36,7 @@ export async function apiGenerate(payload, onToast) {
     try {
       data = await res.json();
     } catch (e) {
-      data = { error: 'Server e kharab response aapyo.' };
+      data = { error: 'Server returned a bad response.' };
     }
     if (res.ok) return data;
 
@@ -55,10 +55,10 @@ export async function apiGenerate(payload, onToast) {
     }
     if (isQuota) {
       throw new Error(
-        'Gemini free-tier limit aavi gayi. ' +
+        'Gemini free-tier limit reached. ' +
           (waitS > 65
-            ? 'Aaje no daily limit puro thai gayo lage che — kale reset thashe, athva .env ma GEMINI_MODEL=gemini-2.5-flash-lite muki ne server restart karo (vadhu daily requests).'
-            : 'Limit clear nathi thati. 2 minute pura rok ne fari try karo, athva flash-lite par switch karo (.env → GEMINI_MODEL=gemini-2.5-flash-lite).')
+            ? 'Daily limit appears to be fully exhausted — it will reset tomorrow, or set GEMINI_MODEL=gemini-2.5-flash-lite in .env and restart the server (more daily requests).'
+            : 'Limit has not cleared. Wait 2 minutes and try again, or switch to flash-lite (.env → GEMINI_MODEL=gemini-2.5-flash-lite).')
       );
     }
     throw new Error(msg);
