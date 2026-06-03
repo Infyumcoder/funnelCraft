@@ -57,14 +57,14 @@ export default function App() {
       try {
         spec = await getSpec();
       } catch (e) {
-        if (/limit|quota/i.test(e.message)) throw e; // don't burn a 2nd request
+        if (/limit|quota|overloaded/i.test(e.message)) throw e; // don't burn a 2nd request
         spec = null;
       }
       // STEP 2 — build the funnel HTML, with the spec hard-coded in.
       const payload = buildMessages(description, extra, spec, refs);
       const data = await apiGenerate(payload, toast);
       const text = (data.content || []).map((b) => b.text || '').join('');
-      if (!text.trim()) throw new Error(data.error?.message || 'Empty response. Retry karo.');
+      if (!text.trim()) throw new Error(data.error?.message || 'Empty response. Please try again.');
       setHtml(extractHtml(text));
       setView('prev');
       toast('Funnel ready! Desktop + Mobile preview available.');
