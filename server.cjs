@@ -4,45 +4,38 @@
 // Why a server? An LLM API cannot be called directly from a browser
 // (CORS + the API key must stay secret). This little server fixes both.
 //
-// The front-end (public/index.html) still speaks "Anthropic format".
+// The front-end speaks "Anthropic format".
 // This server converts that to Gemini format on the way out, and converts
 // Gemini's reply back to Anthropic shape on the way in — so the front-end
 // needs ZERO changes.
 
-require('dotenv').config();
-const express = require('express');
 const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+const express = require('express');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Supports multiple comma-separated API keys for automatic rotation.
-// When one key hits the rate limit, the server instantly tries the next key
-// instead of waiting 60s. Add more free keys at aistudio.google.com/apikey
-// Example: GEMINI_API_KEY=key1,key2,key3
-const API_KEYS = (process.env.GEMINI_API_KEY || '')
-  .split(',')
-  .map((k) => k.trim())
-  .filter(Boolean);
-
-// Per-key cooldown tracking: keyIndex -> timestamp when it's free again
-const keyCooldown = {};
-
-function getAvailableKey() {
-  const now = Date.now();
-  for (let i = 0; i < API_KEYS.length; i++) {
-    if (!keyCooldown[i] || keyCooldown[i] <= now) return { key: API_KEYS[i], idx: i };
+// Free Gemini keys — no credit card needed.
+// Get keys here: https://aistudio.google.com/apikey
+// Add up to 5 keys (GEMINI_API_KEY_1 … GEMINI_API_KEY_5) for automatic
+// rotation — when one key hits the rate limit the next one takes over.
+// GEMINI_API_KEY (no number) is also accepted as a single-key fallback.
+const API_KEYS = (() => {
+  const keys = [];
+  for (let i = 1; i <= 5; i++) {
+    const k = process.env[`GEMINI_API_KEY_${i}`];
+    if (k) keys.push(k);
   }
-  // All keys are cooling down — return the one that frees soonest
-  let best = 0;
-  for (let i = 1; i < API_KEYS.length; i++) {
-    if ((keyCooldown[i] || 0) < (keyCooldown[best] || 0)) best = i;
-  }
-  return { key: API_KEYS[best], idx: best, coolUntil: keyCooldown[best] };
-}
+  const single = process.env.GEMINI_API_KEY;
+  if (single && !keys.includes(single)) keys.push(single);
+  return keys;
+})();
 
-// Which free model to use. Flash is fast and good for HTML generation.
-// Options on the free tier: gemini-2.5-flash, gemini-2.5-flash-lite, gemini-2.5-pro
+let keyIndex = 0; // round-robin pointer
+
+// Which free model to use. flash-lite gives the most requests/day on free tier.
+// Options: gemini-2.5-flash-lite, gemini-2.5-flash, gemini-2.5-pro
 const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
 
 // Bigger limit so large reference images don't get rejected before our
@@ -50,14 +43,12 @@ const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
 app.use(express.json({ limit: '60mb' }));
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// Catch body-parser errors (e.g. payload too large) and return JSON,
-// NOT Express's default HTML error page. This is what caused the
-// "Unexpected token '<', <!DOCTYPE..." error in the browser.
+// Catch body-parser errors and return JSON, not Express's default HTML page.
 app.use((err, req, res, next) => {
   if (err) {
     return res.status(err.status || 400).json({
       error: err.type === 'entity.too.large'
-        ? 'Reference file is too large. Use smaller/fewer images (keep each image under ~5MB).'
+        ? 'Reference file is too large. Use smaller images (keep each image under ~5MB).'
         : 'Request error: ' + err.message
     });
   }
@@ -97,7 +88,7 @@ function toGemini(messages) {
 app.post('/api/generate', async (req, res) => {
   if (API_KEYS.length === 0) {
     return res.status(500).json({
-      error: 'GEMINI_API_KEY is not set. Add your key(s) to the .env file and restart the server.'
+      error: 'No Gemini API key set. Add GEMINI_API_KEY (or GEMINI_API_KEY_1 … _5) to your .env file and restart the server.'
     });
   }
 
@@ -107,110 +98,82 @@ app.post('/api/generate', async (req, res) => {
   }
 
   // Gemini's inline (base64) data limit per request is ~20MB total.
-  // If references push past that, warn clearly instead of letting Gemini
-  // throw a confusing error.
   let inlineBytes = 0;
   for (const m of messages) {
     if (Array.isArray(m.content)) {
       for (const b of m.content) {
-        if (b.source?.data) inlineBytes += b.source.data.length * 0.75; // base64 -> bytes
+        if (b.source?.data) inlineBytes += b.source.data.length * 0.75;
       }
     }
   }
   if (inlineBytes > 18 * 1024 * 1024) {
     return res.status(413).json({
-      error: 'Reference images are too large (Gemini accepts ~20MB total inline). Use smaller screenshots or remove some references.'
+      error: 'Reference images are too large (~20MB Gemini limit). Use smaller screenshots or fewer references.'
     });
   }
 
-  // Try each available key; on 429 mark that key as cooling and try the next.
-  const MAX_KEY_ATTEMPTS = API_KEYS.length;
-  let lastError = null;
+  // Try each key in rotation; on 429 move to the next key immediately.
+  const startIndex = keyIndex;
+  for (let attempt = 0; attempt < API_KEYS.length; attempt++) {
+    const key = API_KEYS[keyIndex];
+    keyIndex = (keyIndex + 1) % API_KEYS.length;
 
-  for (let attempt = 0; attempt < MAX_KEY_ATTEMPTS; attempt++) {
-    const { key, idx, coolUntil } = getAvailableKey();
-
-    // All keys are still cooling — tell the client to wait
-    if (coolUntil && coolUntil > Date.now()) {
-      const waitSec = Math.ceil((coolUntil - Date.now()) / 1000);
-      return res.status(429).json({
-        error: `Rate limit reached on all ${API_KEYS.length} key(s). Retry in ${waitSec}s`
-      });
-    }
-
+    let upstream, data;
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`;
-
-      const upstream = await fetch(url, {
+      upstream = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: toGemini(messages),
           generationConfig: {
-            // A full landing page needs lots of tokens. 8000 was too low.
-            // Front-end may override (e.g. smaller for the quick analysis step).
             maxOutputTokens: Number.isInteger(maxOutputTokens) ? maxOutputTokens : 32000,
             temperature: typeof temperature === 'number' ? temperature : 1,
-            // Gemini 2.5 "thinking" eats output tokens, which left the HTML
-            // truncated/empty — so it's OFF (budget 0) by default for page builds.
-            // The front-end turns it ON (small budget) ONLY for the design-analysis
-            // step, so the model actually "reads" the reference image properly.
-            // (Works on flash / flash-lite. Pro can't fully disable thinking.)
             ...(MODEL.includes('pro') ? {} : { thinkingConfig: { thinkingBudget: Number.isInteger(thinkingBudget) ? thinkingBudget : 0 } })
           }
         })
       });
-
-      const data = await upstream.json();
-
-      if (!upstream.ok) {
-        const msg = data?.error?.message || ('Gemini error ' + upstream.status);
-        const isQuota = upstream.status === 429 || /quota|rate.?limit|exceeded|RESOURCE_EXHAUSTED/i.test(msg);
-
-        if (isQuota && API_KEYS.length > 1) {
-          // Mark this key as cooling for 65 seconds and retry with the next key
-          const retryMatch = msg.match(/retry in ([\d.]+)\s*s/i);
-          const coolSec = retryMatch ? Math.ceil(parseFloat(retryMatch[1])) + 2 : 65;
-          keyCooldown[idx] = Date.now() + coolSec * 1000;
-          lastError = msg;
-          continue; // try next key
-        }
-
-        return res.status(upstream.status).json({ error: msg });
-      }
-
-      // Pull text out of Gemini's reply.
-      // Filter out thinking parts (thought: true) — they appear in the parts array
-      // when thinkingBudget > 0, and mixing them with the actual output corrupts
-      // JSON parsing in analyzeReferences (thinking text often contains '{' chars).
-      const text = (data?.candidates?.[0]?.content?.parts || [])
-        .filter(p => !p.thought)
-        .map(p => p.text || '')
-        .join('');
-
-      if (!text.trim()) {
-        const reason = data?.candidates?.[0]?.finishReason || 'empty';
-        return res.status(500).json({ error: `Gemini returned an empty response (${reason}). Please retry.` });
-      }
-
-      // Send back in Anthropic shape so the front-end works unchanged.
-      return res.json({ content: [{ type: 'text', text }] });
-
+      data = await upstream.json();
     } catch (err) {
-      lastError = err.message;
-      break;
+      return res.status(500).json({ error: 'Proxy error: ' + err.message });
     }
+
+    // Rate-limited on this key → try the next one immediately
+    if (upstream.status === 429 && attempt < API_KEYS.length - 1) {
+      continue;
+    }
+
+    if (!upstream.ok) {
+      return res.status(upstream.status).json({
+        error: data?.error?.message || ('Gemini error ' + upstream.status)
+      });
+    }
+
+    const text = (data?.candidates?.[0]?.content?.parts || [])
+      .map(p => p.text || '')
+      .join('');
+
+    if (!text.trim()) {
+      const reason = data?.candidates?.[0]?.finishReason || 'empty';
+      return res.status(500).json({ error: 'Gemini returned an empty response (' + reason + '). Please try again.' });
+    }
+
+    res.json({ content: [{ type: 'text', text }] });
+    return;
   }
 
-  res.status(500).json({ error: lastError || 'Proxy error' });
+  // All keys rate-limited — fall back to the original wait-and-retry flow
+  res.status(429).json({ error: 'All API keys are rate-limited. Please wait a moment and try again.' });
 });
 
-// Any unknown /api/* route returns JSON (never the HTML index page).
 app.all('/api/*', (req, res) => {
-  res.status(404).json({ error: 'Aa API route che j nahi: ' + req.path });
+  res.status(404).json({ error: 'API route not found: ' + req.path });
 });
 
 app.listen(PORT, () => {
   console.log(`\n  FunnelCraft running 👉  http://localhost:${PORT}`);
   console.log(`  Model: ${MODEL} | API keys loaded: ${API_KEYS.length}\n`);
+  if (API_KEYS.length === 0) {
+    console.log('  ⚠  No API keys found! Add GEMINI_API_KEY_1 (or GEMINI_API_KEY) to your .env file.\n');
+  }
 });

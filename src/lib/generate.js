@@ -1,12 +1,12 @@
 // ── Core generation logic, ported from the original index.html <script>. ──
 // The behaviour is identical; only the surrounding UI moved to React.
 
-// ── API CALL WITH FREE-TIER QUOTA HANDLING ──
+// ── API CALL WITH RATE-LIMIT HANDLING ──
 // `onToast` is an optional callback so the UI can show the live countdown.
 function countdownWait(sec, onToast) {
   return new Promise((resolve) => {
     let left = sec;
-    onToast && onToast('Free-tier limit — auto-retry in ' + left + 's…');
+    onToast && onToast('Rate limit — auto-retry in ' + left + 's…');
     const iv = setInterval(() => {
       left--;
       if (left <= 0) {
@@ -14,7 +14,7 @@ function countdownWait(sec, onToast) {
         onToast && onToast('Retrying…');
         resolve();
       } else {
-        onToast && onToast('Free-tier limit — auto-retry in ' + left + 's…');
+        onToast && onToast('Rate limit — auto-retry in ' + left + 's…');
       }
     }, 1000);
   });
@@ -36,7 +36,11 @@ export async function apiGenerate(payload, onToast) {
     try {
       data = await res.json();
     } catch (e) {
+<<<<<<< HEAD
       data = { error: 'Server returned a bad response.' };
+=======
+      data = { error: 'Server returned an invalid response.' };
+>>>>>>> 3def38c340cfa2f8a15398d8cbc35c2cefebccb0
     }
     if (res.ok) return data;
 
@@ -48,17 +52,23 @@ export async function apiGenerate(payload, onToast) {
     const waitS = m ? Math.ceil(parseFloat(m[1])) : isQuota ? 25 : 0;
     const lastAttempt = attempt === MAX_ATTEMPTS - 1;
 
-    // Per-minute limit → wait it out and retry automatically (with a buffer).
+    // Rate limit → wait it out and retry automatically (with a buffer).
     if (isQuota && !lastAttempt && waitS <= 65) {
       await countdownWait(waitS + 2, onToast);
       continue;
     }
     if (isQuota) {
       throw new Error(
+<<<<<<< HEAD
         'Gemini free-tier limit reached. ' +
           (waitS > 65
             ? 'Daily limit appears to be fully exhausted — it will reset tomorrow, or set GEMINI_MODEL=gemini-2.5-flash-lite in .env and restart the server (more daily requests).'
             : 'Limit has not cleared. Wait 2 minutes and try again, or switch to flash-lite (.env → GEMINI_MODEL=gemini-2.5-flash-lite).')
+=======
+        waitS > 65
+          ? 'Daily API limit reached — it will reset soon. Try again later or upgrade your Anthropic plan.'
+          : 'Rate limit could not clear. Wait 2 minutes and try again.'
+>>>>>>> 3def38c340cfa2f8a15398d8cbc35c2cefebccb0
       );
     }
     throw new Error(msg);
