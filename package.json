@@ -3,12 +3,13 @@
   "version": "1.0.0",
   "description": "FunnelCraft AI — React (Vite) front-end + secure Gemini proxy backend",
   "type": "module",
+  "homepage": "https://infyumcoder.github.io/funnelCraft/",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "server": "node server.cjs",
-    "start": "npm run build && node server.cjs"
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
@@ -18,6 +19,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
+    "gh-pages": "^6.3.0",
     "vite": "^5.4.0"
   }
 }
