@@ -361,14 +361,21 @@ Apply: hero headline/subhead → style="animation:heroIn .8s ease both" | cards/
 
 ${replicationDirective}${specHints ? '\n\n' + specHints : ''}${extraNote}`;
 
-    userText = `CLIENT CONTENT (text & copy only — all layout decisions come from the reference image):
+    userText = `━━━ CONTENT SOURCE (text & copy) ━━━
+Use ONLY the text below for ALL headlines, subheadlines, bullets, features, testimonials, pricing, CTA labels, and body copy.
+Do NOT copy any wording from the reference image — the reference is for VISUAL DESIGN only.
 """
 ${desc}
 """
+━━━ END CONTENT ━━━
 
-The reference design image is shown directly above in this conversation.
-TASK: Replicate its EXACT layout section-by-section. Use client content for text. Replace photos with stock images in the same position/size.
-Output ONLY the complete HTML document starting with <!DOCTYPE html>. Do not truncate — output the full page.`;
+━━━ LAYOUT SOURCE ━━━
+The reference design image shown above is your ONLY layout blueprint.
+Replicate its sections, grid, colors, typography, spacing, buttons, and card styles exactly.
+Replace photos/people with Unsplash stock images in identical positions and sizes.
+━━━ END LAYOUT ━━━
+
+Output ONLY the complete HTML document starting with <!DOCTYPE html>. Do not truncate.`;
 
   } else {
     // ── NO-REF PATH: full detailed prompt ──

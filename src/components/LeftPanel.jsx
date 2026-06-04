@@ -44,6 +44,20 @@ export default function LeftPanel({ desc, setDesc, refs, setRefs, clientImages, 
             onChange={(e) => setDesc(e.target.value)}
             placeholder="Example: My client sells a Digital Marketing course called 'Growth Formula'. Price ₹4,999. 6 modules, live Q&A, 500+ students, 30-day guarantee...&#10;&#10;Tip: Leave blank if you upload reference images — AI will auto-extract the content!"
           />
+          {/* Source hint — shown when ref images are present */}
+          {refs.some((r) => r.type === 'image' || r.type === 'pdf') && (
+            <div className="src-hint">
+              {desc.trim() ? (
+                <>
+                  <span className="sh-badge sh-layout">🎨 Layout from reference image</span>
+                  <span className="sh-sep">·</span>
+                  <span className="sh-badge sh-content">📝 Content from description</span>
+                </>
+              ) : (
+                <span className="sh-auto">AI will extract layout + content from your reference image</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* QUICK ADD */}

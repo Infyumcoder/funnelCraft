@@ -52,6 +52,14 @@ textarea.ta:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--acg)}
 
 .dvd{height:1px;background:var(--bd)}
 
+/* SOURCE HINT — shown below description when ref images are present */
+.src-hint{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin-top:6px;font-size:10px}
+.sh-badge{padding:2px 8px;border-radius:10px;font-weight:500}
+.sh-layout{background:var(--pus);color:var(--pu);border:1px solid rgba(181,123,255,.2)}
+.sh-content{background:var(--acs);color:var(--ac);border:1px solid rgba(124,110,245,.2)}
+.sh-sep{color:var(--hi)}
+.sh-auto{color:var(--mu);font-style:italic}
+
 /* REFERENCE TABS */
 .ref-wrap{background:var(--sf2);border:1px solid var(--bd2);border-radius:var(--r);overflow:hidden}
 .ref-header{padding:8px 12px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between}
