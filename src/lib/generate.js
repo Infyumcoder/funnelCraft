@@ -285,10 +285,10 @@ For ALL OTHER image slots (testimonial avatars, feature icons, background accent
       const hFont = (spec.font && spec.font.headingFont) || '';
       const bFont = (spec.font && spec.font.bodyFont) || hFont;
       const sections = Array.isArray(spec.sections) && spec.sections.length
-        ? 'Sections in this EXACT order: ' + spec.sections.join(' → ')
+        ? 'Reference included these section types (use as inspiration for which sections to include):\n' + spec.sections.join(' → ')
         : '';
       const distinctive = Array.isArray(spec.distinctive) && spec.distinctive.length
-        ? 'Replicate these visual details exactly:\n' + spec.distinctive.slice(0, 10).map((d, i) => `${i + 1}. ${d}`).join('\n')
+        ? 'Reference visual traits to draw inspiration from (adapt, improve, or reimagine):\n' + spec.distinctive.slice(0, 10).map((d, i) => `${i + 1}. ${d}`).join('\n')
         : '';
 
       // Build a mandatory CSS block the model must paste verbatim
@@ -304,48 +304,50 @@ For ALL OTHER image slots (testimonial avatars, feature icons, background accent
       if (css.ctaSection)   mandatoryCSS.push(css.ctaSection);
 
       const mandatoryBlock = mandatoryCSS.length
-        ? `━━━ MANDATORY CSS — PASTE VERBATIM INTO <style> ━━━\n${mandatoryCSS.join('\n')}\n━━━ END MANDATORY CSS ━━━`
+        ? `━━━ REFERENCE PALETTE & FONTS — USE AS YOUR BASE (adapt freely) ━━━\n${mandatoryCSS.join('\n')}\n━━━ END REFERENCE PALETTE ━━━`
         : '';
 
       specHints = [
-        hFont && `FONTS: heading="${hFont}"${bFont && bFont !== hFont ? ` body="${bFont}"` : ''} — import from Google Fonts`,
-        spec.isDark !== undefined && `THEME: ${spec.isDark ? 'dark' : 'light'} background — ${spec.isDark ? 'dark body, light text' : 'light body, dark text'}`,
+        hFont && `FONTS (from reference): heading="${hFont}"${bFont && bFont !== hFont ? ` body="${bFont}"` : ''} — import from Google Fonts, adapt if needed`,
+        spec.isDark !== undefined && `THEME: ${spec.isDark ? 'dark' : 'light'} — keep this theme direction`,
+        spec.mood && `BRAND MOOD: "${spec.mood}" — let this drive the whole visual energy and personality`,
         mandatoryBlock,
         sections,
-        spec.layout?.hero && `HERO LAYOUT: ${spec.layout.hero}`,
-        spec.layout?.nav && `NAV LAYOUT: ${spec.layout.nav}`,
-        spec.layout?.contentSections && `CONTENT SECTIONS LAYOUT: ${spec.layout.contentSections}`,
-        spec.spacing && `SPACING: ${spec.spacing}`,
-        spec.radius && `BORDER-RADIUS style: ${spec.radius}`,
+        spec.spacing && `SPACING FEEL: ${spec.spacing}`,
+        spec.radius && `BORDER-RADIUS STYLE: ${spec.radius}`,
         distinctive,
       ].filter(Boolean).join('\n\n');
     }
 
-    // Always include a strong replication directive — even if spec analysis failed,
-    // the model must still replicate the visual layout from the reference image.
+    // Inspire from reference — but create a UNIQUE layout, not a pixel copy.
     const replicationDirective = `
-━━━ PRIMARY MISSION: PIXEL-PERFECT LAYOUT REPLICATION ━━━
-The reference image(s) in this message are your MASTER DESIGN BLUEPRINT.
-YOU MUST REPLICATE:
-  ✓ Every section — same top-to-bottom order as in the reference
-  ✓ Hero layout — same grid (columns, widths, image position, text alignment)
-  ✓ Nav bar — same position (fixed/sticky), height, background, link style
-  ✓ Color palette — exact hex values from the reference (no defaults)
-  ✓ Typography — same font family, sizes, weights, letter-spacing
-  ✓ Cards/features — same border-radius, shadow, padding, background
-  ✓ Spacing & rhythm — same section padding, gap between elements
-  ✓ Buttons — same shape, fill, border, shadow as in the reference
-  ✓ All decorative details — gradients, dividers, icons, badge styles
-YOU MUST REPLACE:
-  → Text content → use client description below
-  → People/product photos → use Unsplash stock or client image placeholders
-FORBIDDEN:
-  ✗ Do NOT invent new sections not in the reference
-  ✗ Do NOT reorder sections
-  ✗ Do NOT use a default generic funnel template
+━━━ PRIMARY MISSION: CREATE A UNIQUE HIGH-CONVERTING LAYOUT INSPIRED BY THE REFERENCE ━━━
+Study the reference image(s) DEEPLY — absorb its soul, then build something UNIQUE and BETTER.
+
+ABSORB FROM THE REFERENCE:
+  ✓ Color palette & mood — sample hex values and use them as your palette base
+  ✓ Dark / light theme — match the overall theme direction
+  ✓ Typography feel — bold/elegant/modern vibe (same or similar font family)
+  ✓ Section categories — which types of sections appear (hero, benefits, testimonials, CTA…)
+  ✓ Brand personality — premium / energetic / minimal / trustworthy etc.
+  ✓ Button & card aesthetic — rounded/sharp, filled/outlined style
+
+YOUR CREATIVE MANDATE — make it UNIQUE & BETTER:
+  → Design your OWN grid layouts and visual compositions — don't copy section-for-section
+  → Invent fresh visual treatments: asymmetric grids, diagonal section dividers (clip-path), glassmorphism cards, bold gradient headlines, confetti/pattern backgrounds using CSS only
+  → For ENERGETIC/EVENT designs (bright colors, bold fonts, celebrations): add floating badges, animated pulse effects on CTA, diagonal hero splits, neon glow accents
+  → For PREMIUM/COACHING designs (dark, elegant): add subtle texture overlays, large quote marks, timeline layouts, before/after grids
+  → Reorder / reimagine sections for maximum conversion psychology
+  → Every section should feel FRESH while matching the extracted brand mood
+  → The result must look INSPIRED BY the reference, not a copy of it
+
+NON-NEGOTIABLE:
+  ✓ Use client content for ALL text — no lorem ipsum
+  ✓ Full responsive desktop + mobile
+  ✓ Apply the extracted color palette and font feel
 ━━━ END MISSION ━━━`.trim();
 
-    sys = `You are a senior HTML/CSS developer replicating a reference design as a complete sales funnel page.
+    sys = `You are a world-class HTML/CSS designer creating a UNIQUE, HIGH-CONVERTING sales funnel inspired by a reference design's mood and structure.
 
 OUTPUT: Raw HTML only — <!DOCTYPE html> first. No markdown fences. All CSS in one <style> tag, no frameworks.
 Fully responsive: mobile-first + @media (min-width:768px) for desktop layout.
@@ -361,19 +363,20 @@ Apply: hero headline/subhead → style="animation:heroIn .8s ease both" | cards/
 
 ${replicationDirective}${specHints ? '\n\n' + specHints : ''}${extraNote}`;
 
-    userText = `━━━ CONTENT SOURCE (text & copy) ━━━
+    userText = `━━━ CONTENT (text & copy) ━━━
 Use ONLY the text below for ALL headlines, subheadlines, bullets, features, testimonials, pricing, CTA labels, and body copy.
-Do NOT copy any wording from the reference image — the reference is for VISUAL DESIGN only.
+Do NOT copy any wording from the reference image — reference is for STYLE INSPIRATION only.
 """
 ${desc}
 """
 ━━━ END CONTENT ━━━
 
-━━━ LAYOUT SOURCE ━━━
-The reference design image shown above is your ONLY layout blueprint.
-Replicate its sections, grid, colors, typography, spacing, buttons, and card styles exactly.
-Replace photos/people with Unsplash stock images in identical positions and sizes.
-━━━ END LAYOUT ━━━
+━━━ CREATIVE DIRECTION ━━━
+The reference design shown above is your STYLE INSPIRATION — absorb its palette, mood, and section types.
+Now CREATE A UNIQUE LAYOUT: invent fresh grids, visual compositions, and design details that feel inspired by but DIFFERENT from the reference.
+Make it look premium, modern, and better-converting than the original.
+Replace all photos with Unsplash stock images or client image placeholders.
+━━━ END CREATIVE DIRECTION ━━━
 
 Output ONLY the complete HTML document starting with <!DOCTYPE html>. Do not truncate.`;
 

@@ -1,10 +1,10 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Nav from './components/Nav';
 import LeftPanel from './components/LeftPanel';
 import RightPanel from './components/RightPanel';
 import Toast from './components/Toast';
 import { VARIATION_PROMPTS } from './lib/data';
-import { apiGenerate, analyzeReferences, buildMessages, buildDescriptionFromContent, editFunnel, extractHtml, CLIENT_PLACEHOLDER } from './lib/generate';
+import { buildMessages, buildDescriptionFromContent, editFunnel, extractHtml, CLIENT_PLACEHOLDER, analyzeReferences, apiGenerate } from './lib/generate';
 
 export default function App() {
   const [desc, setDesc] = useState('');
@@ -24,6 +24,14 @@ export default function App() {
   // Cached design spec (so Regenerate / variations reuse it — 1 request).
   const refSpec = useRef(null);
   const refSig = useRef('');
+  // Auto-generate funnel when a reference image/PDF is added
+  const prevImgRefCount = useRef(0);
+  const autoGenLive = useRef(false);
+  const descRef = useRef(desc);
+  const busyRef = useRef(false);
+
+  useEffect(() => { descRef.current = desc; }, [desc]);
+  useEffect(() => { busyRef.current = busy; }, [busy]);
 
   const toast = useCallback((m) => {
     setToastMsg(m);
@@ -31,6 +39,26 @@ export default function App() {
     clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToastShow(false), 2400);
   }, []);
+
+  // When a new image/PDF ref is added → auto-generate the funnel immediately
+  useEffect(() => {
+    const imgRefs = refs.filter(r => r.type === 'image' || r.type === 'pdf');
+    const count = imgRefs.length;
+    if (count <= prevImgRefCount.current || count === 0) {
+      prevImgRefCount.current = count;
+      return;
+    }
+    prevImgRefCount.current = count;
+
+    autoGenLive.current = true;
+    const timer = setTimeout(() => {
+      if (!autoGenLive.current || busyRef.current) return;
+      toast('Reference image added — generating funnel…');
+      runGen(descRef.current.trim(), null);
+    }, 700);
+
+    return () => { clearTimeout(timer); autoGenLive.current = false; };
+  }, [refs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refsSig = () => refs.map((r) => r.type + ':' + r.label + ':' + r.size).join('|');
 
